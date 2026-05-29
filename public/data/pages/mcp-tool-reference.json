@@ -1,0 +1,563 @@
+{
+  "slug": "mcp-tool-reference",
+  "title": "MCP Tool Reference",
+  "tagline": "Every mcp__dbt_index__ tool, signatures and returns",
+  "summary": "Complete reference for all sixteen mcp__dbt_index__* tools dbt Wizard exposes. Every call is a structured MCP tool call backed by a local DuckDB index of the dbt project (models, columns, tests, edges) plus read-only warehouse access, never a file read or grep. Tools fall into eight groups: DAG-aware intelligence, the project index, warehouse integration, dbt-native CLI calls, business context, MetricFlow metrics, build timings, and dev-vs-prod diff. dbt CLI tools auto-refresh the index on success and support deferred state for cost-efficient builds.",
+  "whyDifferent": "A general AI coding agent answers questions by reading .sql and .yml files and grepping for strings, so \"what breaks if I drop brand_name\" becomes a text match against files that happen to mention the column. These tools query a live DuckDB index that already knows grain, primary keys, materializations, test pass/fail state, and DAG edges, then resolve {{ ref() }} and {{ source() }} against the warehouse. The result is column-level blast radius with severity ratings and live data previews instead of a list of files that contain a substring.",
+  "capabilities": [
+    {
+      "title": "DAG-aware intelligence",
+      "detail": "impact, lineage, and timings traverse the actual edge graph. impact returns severity-rated column- and node-level blast radius; lineage does depth-controlled upstream/downstream traversal scoped to a subgraph; timings finds critical-path bottlenecks from real run results and OpenTelemetry traces."
+    },
+    {
+      "title": "Live project index",
+      "detail": "describe, search, and changeset read the local DuckDB index. describe gives full node introspection (columns, compiled SQL, tests, lineage, catalog types, grain, PK markers); search does BM25 metadata or regex-against-SQL with DAG context attached; changeset does epoch-based diff since last flush."
+    },
+    {
+      "title": "Warehouse integration",
+      "detail": "warehouse runs read-only SQL directly against Snowflake/BigQuery/etc for live previews with no dbt run; dbt_show resolves full Jinja ({{ ref() }}, {{ source() }}, macros) and executes against the warehouse."
+    },
+    {
+      "title": "dbt-native CLI calls",
+      "detail": "dbt_build, dbt_run, dbt_compile, dbt_test, and dbt_parse are structured tool calls (not shell strings). They auto-refresh the index on success and support --defer --state for cost-efficient deferred dev builds."
+    },
+    {
+      "title": "Business context",
+      "detail": "context searches glossary/fiscal/org docs with synonym resolution, mapping business jargon like \"annual revenue\" to canonical dbt terms (ARR) and the models that implement them."
+    },
+    {
+      "title": "Metrics, timings, and diff",
+      "detail": "metrics queries the MetricFlow semantic layer (list/describe/run/dry-run); timings exposes slowest nodes and critical path; diff compares local vs production state (via dbt Cloud token or deferred state) for safe PR validation."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "What breaks if I drop brand_name from stg_products?",
+      "intent": "Column-level blast radius before a destructive change",
+      "invokes": [
+        "mcp__dbt_index__impact"
+      ]
+    },
+    {
+      "prompt": "Show me everything two hops downstream of fct_orders.",
+      "intent": "Scoped downstream lineage traversal with depth control",
+      "invokes": [
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "What's the grain and PK of int_orders_enriched, and are its tests passing?",
+      "intent": "Full node introspection from the index",
+      "invokes": [
+        "mcp__dbt_index__describe"
+      ]
+    },
+    {
+      "prompt": "Find every model that references the discount_pct column.",
+      "intent": "Regex-against-SQL search with DAG context",
+      "invokes": [
+        "mcp__dbt_index__search"
+      ]
+    },
+    {
+      "prompt": "Preview the top 10 rows of dim_customers in the warehouse without running dbt.",
+      "intent": "Live read-only warehouse preview",
+      "invokes": [
+        "mcp__dbt_index__warehouse"
+      ]
+    },
+    {
+      "prompt": "Build int_orders_enriched and everything downstream using deferred prod state, then run its tests.",
+      "intent": "Cost-efficient deferred dev build plus tests",
+      "invokes": [
+        "mcp__dbt_index__dbt_build",
+        "mcp__dbt_index__dbt_test"
+      ]
+    },
+    {
+      "prompt": "What does our glossary mean by annual revenue and which model owns it, and what's the slowest node in the build?",
+      "intent": "Business-jargon resolution plus build bottleneck",
+      "invokes": [
+        "mcp__dbt_index__context",
+        "mcp__dbt_index__timings"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "mcp__dbt_index__impact",
+      "signature": "mcp__dbt_index__impact(node, column?, max_depth?, scope?)",
+      "purpose": "DAG-aware blast radius for a node or specific column, with severity ratings, by traversing edges in the index rather than grepping references.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Target model/node, e.g. stg_products."
+        },
+        {
+          "name": "column",
+          "type": "string",
+          "desc": "Optional column to scope blast radius to a single field, e.g. brand_name."
+        },
+        {
+          "name": "max_depth",
+          "type": "int",
+          "desc": "Optional downstream hop limit for the traversal."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "desc": "Optional subgraph filter (e.g. layer or path) to bound the report."
+        }
+      ],
+      "returns": "Ranked list of affected downstream nodes/columns each tagged severity critical/high/medium/low, with the edge path explaining why."
+    },
+    {
+      "name": "mcp__dbt_index__lineage",
+      "signature": "mcp__dbt_index__lineage(node, direction?, max_depth?, edge_types?, scope?)",
+      "purpose": "Upstream/downstream DAG traversal with hop-depth control and edge-type filtering, scoped to a subgraph.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Starting node, e.g. fct_orders."
+        },
+        {
+          "name": "direction",
+          "type": "enum",
+          "desc": "upstream, downstream, or both."
+        },
+        {
+          "name": "max_depth",
+          "type": "int",
+          "desc": "Number of hops to traverse."
+        },
+        {
+          "name": "edge_types",
+          "type": "string[]",
+          "desc": "Filter edges (e.g. ref vs source) included in traversal."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "desc": "Optional subgraph bound."
+        }
+      ],
+      "returns": "Ordered node list with hop distance and edge type per relationship."
+    },
+    {
+      "name": "mcp__dbt_index__describe",
+      "signature": "mcp__dbt_index__describe(node, include?)",
+      "purpose": "Full node introspection from the index: columns, compiled SQL, test results, lineage, catalog types, plus grain, PK markers, schema, and materialization.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Node to introspect, e.g. int_orders_enriched."
+        },
+        {
+          "name": "include",
+          "type": "string[]",
+          "desc": "Optional sections to return (columns, compiled_sql, tests, lineage, catalog)."
+        }
+      ],
+      "returns": "Structured node profile: column list with types, grain, PK markers, materialization, schema, last-run test pass/fail, and compiled SQL."
+    },
+    {
+      "name": "mcp__dbt_index__search",
+      "signature": "mcp__dbt_index__search(query, mode?, target?, scope?)",
+      "purpose": "BM25 metadata search or regex against raw/compiled SQL, with DAG context attached to every hit.",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "desc": "Search terms or regex pattern."
+        },
+        {
+          "name": "mode",
+          "type": "enum",
+          "desc": "bm25 (metadata) or regex (against SQL)."
+        },
+        {
+          "name": "target",
+          "type": "enum",
+          "desc": "raw_sql or compiled_sql when in regex mode."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "desc": "Optional subgraph/layer filter."
+        }
+      ],
+      "returns": "Ranked matches, each with the node, the matched snippet, and its DAG context (upstream/downstream neighbors)."
+    },
+    {
+      "name": "mcp__dbt_index__changeset",
+      "signature": "mcp__dbt_index__changeset(since_epoch?, with_impact?)",
+      "purpose": "Epoch-based diff of what changed in the project since the last index flush, optionally annotated with downstream impact.",
+      "params": [
+        {
+          "name": "since_epoch",
+          "type": "int",
+          "desc": "Epoch marker to diff from; defaults to last flush."
+        },
+        {
+          "name": "with_impact",
+          "type": "bool",
+          "desc": "Attach downstream impact analysis to each change."
+        }
+      ],
+      "returns": "List of added/modified/removed nodes and columns since the epoch, optionally with severity-rated downstream impact."
+    },
+    {
+      "name": "mcp__dbt_index__warehouse",
+      "signature": "mcp__dbt_index__warehouse(sql, limit?)",
+      "purpose": "Run live READ-ONLY SQL directly against the warehouse (Snowflake/BigQuery/etc.) for data previews without a dbt run.",
+      "params": [
+        {
+          "name": "sql",
+          "type": "string",
+          "desc": "Read-only SQL statement to execute."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "desc": "Optional row cap for the preview."
+        }
+      ],
+      "returns": "Result rows and column headers from the warehouse; read-only, no DDL/DML."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_show",
+      "signature": "mcp__dbt_index__dbt_show(node_or_sql, limit?)",
+      "purpose": "Execute SQL with full Jinja resolution ({{ ref() }}, {{ source() }}, macros) against the warehouse and return the preview.",
+      "params": [
+        {
+          "name": "node_or_sql",
+          "type": "string",
+          "desc": "A model selector or inline SQL containing Jinja to resolve and run."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "desc": "Optional preview row count."
+        }
+      ],
+      "returns": "Compiled SQL plus the resulting preview rows after Jinja/macro expansion."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_build",
+      "signature": "mcp__dbt_index__dbt_build(select?, defer?, state?, exclude?)",
+      "purpose": "Structured dbt build (run + test) as an MCP call; auto-refreshes the index on success and supports deferred state.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "dbt selector, e.g. int_orders_enriched+ for the node and downstream."
+        },
+        {
+          "name": "defer",
+          "type": "bool",
+          "desc": "Defer unselected refs to a prior state for cost-efficient dev builds."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Path/handle to the deferred manifest (e.g. prod)."
+        },
+        {
+          "name": "exclude",
+          "type": "string",
+          "desc": "Optional selector to exclude."
+        }
+      ],
+      "returns": "Per-node run + test status (success/error/skipped) with row counts; triggers an index refresh on success."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_run",
+      "signature": "mcp__dbt_index__dbt_run(select?, defer?, state?, full_refresh?)",
+      "purpose": "Structured dbt run as an MCP call; auto-refreshes the index on success and supports deferred state.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "Models to run via dbt selector syntax."
+        },
+        {
+          "name": "defer",
+          "type": "bool",
+          "desc": "Defer unselected refs to prior state."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Deferred manifest reference."
+        },
+        {
+          "name": "full_refresh",
+          "type": "bool",
+          "desc": "Force full refresh of incremental models."
+        }
+      ],
+      "returns": "Per-model materialization status and timing; index refresh on success."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_compile",
+      "signature": "mcp__dbt_index__dbt_compile(select?)",
+      "purpose": "Structured dbt compile as an MCP call; resolves Jinja to executable SQL without touching the warehouse.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "Models to compile via dbt selector syntax."
+        }
+      ],
+      "returns": "Compiled SQL per selected node; index refresh on success."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_test",
+      "signature": "mcp__dbt_index__dbt_test(select?, defer?, state?)",
+      "purpose": "Structured dbt test as an MCP call; runs schema.yml and data tests and refreshes the index.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "Tests/models to test via selector syntax."
+        },
+        {
+          "name": "defer",
+          "type": "bool",
+          "desc": "Defer unselected refs to prior state."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Deferred manifest reference."
+        }
+      ],
+      "returns": "Per-test pass/fail with failing row counts; index refresh on success."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_parse",
+      "signature": "mcp__dbt_index__dbt_parse()",
+      "purpose": "Structured dbt parse as an MCP call; rebuilds the manifest and validates project graph integrity.",
+      "params": [
+        {
+          "name": "(none)",
+          "type": "-",
+          "desc": "No required parameters; parses the whole project."
+        }
+      ],
+      "returns": "Parse status with any compilation/graph errors; refreshes the index on success."
+    },
+    {
+      "name": "mcp__dbt_index__context",
+      "signature": "mcp__dbt_index__context(term, scope?)",
+      "purpose": "Glossary/fiscal/org business-context search with synonym resolution, mapping jargon to canonical dbt terms and linked models.",
+      "params": [
+        {
+          "name": "term",
+          "type": "string",
+          "desc": "Business phrase to resolve, e.g. \"annual revenue\"."
+        },
+        {
+          "name": "scope",
+          "type": "enum",
+          "desc": "Optional domain filter: glossary, fiscal, or org."
+        }
+      ],
+      "returns": "Canonical term (e.g. ARR), definition, synonyms, and the dbt models/columns that implement it."
+    },
+    {
+      "name": "mcp__dbt_index__metrics",
+      "signature": "mcp__dbt_index__metrics(action, metric?, group_by?, dry_run?)",
+      "purpose": "MetricFlow semantic-layer interface: list, describe, run, and dry-run metrics.",
+      "params": [
+        {
+          "name": "action",
+          "type": "enum",
+          "desc": "list, describe, run, or dry-run."
+        },
+        {
+          "name": "metric",
+          "type": "string",
+          "desc": "Metric name for describe/run/dry-run."
+        },
+        {
+          "name": "group_by",
+          "type": "string[]",
+          "desc": "Dimensions/time grains to group by on run."
+        },
+        {
+          "name": "dry_run",
+          "type": "bool",
+          "desc": "Validate and show the generated SQL without executing."
+        }
+      ],
+      "returns": "Metric catalog, metric definition, or query results (or generated SQL for dry-run)."
+    },
+    {
+      "name": "mcp__dbt_index__timings",
+      "signature": "mcp__dbt_index__timings(view?, top_n?, node?)",
+      "purpose": "Build performance analysis: slowest nodes, critical-path bottlenecks, and OpenTelemetry trace data from real run results.",
+      "params": [
+        {
+          "name": "view",
+          "type": "enum",
+          "desc": "slowest, critical_path, or trace."
+        },
+        {
+          "name": "top_n",
+          "type": "int",
+          "desc": "How many nodes to return for slowest view."
+        },
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Optional node to scope trace detail to."
+        }
+      ],
+      "returns": "Ranked node timings and/or critical-path nodes with durations, plus OpenTelemetry spans."
+    },
+    {
+      "name": "mcp__dbt_index__diff",
+      "signature": "mcp__dbt_index__diff(select?, target?, state?)",
+      "purpose": "Compare local vs production state for safe PR validation; requires a dbt Cloud token or deferred state.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "Nodes to diff via selector syntax."
+        },
+        {
+          "name": "target",
+          "type": "string",
+          "desc": "Comparison target, e.g. prod."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Deferred state/manifest reference for the comparison."
+        }
+      ],
+      "returns": "Row-level and schema-level differences between local and production for the selected nodes."
+    }
+  ],
+  "interaction": {
+    "scenario": "An SE is demoing tool selection: they rapid-fire four unrelated prompts at dbt Wizard and watch it route each to the correct mcp__dbt_index__* tool, ending with a deferred build and live diff.",
+    "userPrompt": "What breaks if I drop brand_name from stg_products?",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "What breaks if I drop brand_name from stg_products?"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "This is a column-level blast-radius question, not a text search. I'll scope impact to the stg_products node and the brand_name column rather than grepping for the string."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__impact",
+        "toolArgs": "{\"node\":\"stg_products\",\"column\":\"brand_name\",\"max_depth\":5}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"target\":\"stg_products.brand_name\",\"affected\":[{\"node\":\"int_orders_enriched\",\"column\":\"brand_name\",\"severity\":\"high\",\"path\":\"stg_products -> int_orders_enriched\"},{\"node\":\"fct_orders\",\"column\":\"brand_name\",\"severity\":\"critical\",\"path\":\"stg_products -> int_orders_enriched -> fct_orders\"},{\"node\":\"dim_products\",\"column\":\"brand_name\",\"severity\":\"high\",\"path\":\"stg_products -> dim_products\"}],\"tests_at_risk\":2}",
+        "body": "3 downstream columns affected, 1 critical (fct_orders), 2 tests at risk."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Next prompt is a lineage question. Different tool: lineage with a hop limit, downstream only."
+      },
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Now show me everything two hops downstream of fct_orders."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__lineage",
+        "toolArgs": "{\"node\":\"fct_orders\",\"direction\":\"downstream\",\"max_depth\":2}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"root\":\"fct_orders\",\"nodes\":[{\"node\":\"mart_revenue_daily\",\"hop\":1,\"edge\":\"ref\"},{\"node\":\"mart_brand_performance\",\"hop\":1,\"edge\":\"ref\"},{\"node\":\"exposure:looker_revenue_dashboard\",\"hop\":2,\"edge\":\"ref\"}]}",
+        "body": "2 nodes at hop 1, 1 exposure at hop 2."
+      },
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "What's the grain and PK of int_orders_enriched, and are its tests passing?"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"include\":[\"columns\",\"tests\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"node\":\"int_orders_enriched\",\"materialization\":\"incremental\",\"schema\":\"silver\",\"grain\":\"one row per order_id\",\"pk\":[\"order_id\"],\"tests\":{\"passed\":7,\"failed\":1,\"failing\":[{\"test\":\"not_null_int_orders_enriched_brand_name\",\"failing_rows\":42}]}}",
+        "body": "Grain: one row per order_id. PK order_id. 7 tests pass, 1 fails (not_null on brand_name, 42 rows)."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "The failing not_null on brand_name lines up with the blast radius from the first prompt. The SE's last ask is to validate a fix safely, so I'll build the subtree with deferred prod state, then diff local vs prod."
+      },
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Build int_orders_enriched and downstream with deferred prod state, then diff against prod."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_build",
+        "toolArgs": "{\"select\":\"int_orders_enriched+\",\"defer\":true,\"state\":\"prod\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "text",
+        "code": "PASS int_orders_enriched (12.4s)\nPASS fct_orders (8.1s)\nPASS mart_revenue_daily (3.2s)\nPASS mart_brand_performance (2.9s)\n4 of 4 models built OK, deferred refs resolved to prod. Index refreshed."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__diff",
+        "toolArgs": "{\"select\":\"fct_orders\",\"target\":\"prod\",\"state\":\"prod\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"node\":\"fct_orders\",\"schema_changes\":[],\"row_changes\":{\"added\":0,\"removed\":0,\"modified\":42},\"note\":\"42 modified rows: brand_name now populated where prod had NULL\"}"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Routed each prompt to the right tool with no file reads or greps. impact: dropping stg_products.brand_name hits 3 downstream columns, fct_orders critical, 2 tests at risk. lineage: fct_orders feeds mart_revenue_daily and mart_brand_performance, then the Looker exposure. describe: int_orders_enriched is one row per order_id keyed on order_id, with a failing not_null on brand_name (42 rows). The deferred dbt_build of int_orders_enriched+ resolved unselected refs to prod and passed all 4 models, and diff vs prod shows exactly those 42 rows now populated with brand_name and zero schema drift. Safe to PR."
+      }
+    ]
+  },
+  "seNotes": [
+    "Lead the demo with tool selection, not output: the point is the wizard picks impact vs lineage vs search correctly from plain English. \"What breaks\" routes to impact (severity), \"show me downstream\" routes to lineage (hops), \"where is X referenced\" routes to search.",
+    "Hammer the file-read contrast. Ask the room how a generic agent answers \"what breaks if I drop brand_name\" — it greps and returns files containing the string. impact returns severity-rated column-level blast radius from real DAG edges, including tests at risk.",
+    "Call out that the dbt CLI tools (dbt_build/run/compile/test/parse) are structured calls, not shell strings, and they auto-refresh the index on success — so describe and impact stay current right after a build with no manual reindex.",
+    "Always demo --defer --state on dbt_build/dbt_run: it resolves unselected refs to prod state so dev builds only materialize the selected subtree. This is the cost-efficiency talking point for large warehouses.",
+    "diff needs a dbt Cloud token or deferred state to have a prod baseline to compare against. If a prospect has neither configured, show warehouse for a live read-only preview instead, then come back to diff once state is wired up."
+  ],
+  "order": 11
+}

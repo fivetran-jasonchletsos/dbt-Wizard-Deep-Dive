@@ -1,0 +1,236 @@
+{
+  "slug": "business-context",
+  "title": "Business Context",
+  "tagline": "Resolve business jargon to canonical dbt models and metrics",
+  "summary": "The context tool performs glossary, fiscal, and org-level business-context search with synonym resolution, mapping fuzzy stakeholder language such as \"annual revenue last fiscal year\" to canonical dbt terms (ARR), the metrics that define them, and the models that materialize them. Every match arrives with DAG-linked models attached, so the wizard can immediately introspect those nodes via describe to confirm grain, primary keys, and test state. Because the context layer indexes the same DuckDB project graph as the rest of the toolset, it proactively surfaces which linked models lack documentation or test coverage and offers to fill those gaps in the same turn.",
+  "whyDifferent": "A general AI coding agent treats \"annual revenue\" as a literal string to grep, returning every file where the substring happens to appear and missing models named arr, mrr, or fct_subscriptions entirely. The context tool resolves the business synonym to its canonical glossary term first, then returns the exact metric and linked models with full DAG context, not text matches. It also knows, from the live index, which of those models are undocumented or untested, so it can close coverage gaps a grep-based agent would never even see.",
+  "capabilities": [
+    {
+      "title": "Synonym and jargon resolution",
+      "detail": "Maps fuzzy business phrasing to canonical dbt terms: \"annual revenue\" -> ARR, \"churn\" -> logo_churn_rate, \"last fiscal year\" -> the org's fiscal calendar boundaries. Resolution is glossary-driven, not substring matching, so stakeholder language reaches the right model even when the phrasing never appears in the SQL."
+    },
+    {
+      "title": "Fiscal and org calendar awareness",
+      "detail": "Understands the project's fiscal-year and period definitions so relative time language (\"last fiscal year\", \"current quarter\") resolves to concrete date boundaries tied to the canonical revenue models, not the literal calendar year."
+    },
+    {
+      "title": "DAG-linked results",
+      "detail": "Every context match returns the linked models and (where applicable) the MetricFlow metric, so the wizard can pivot straight into describe for grain, PK markers, materialization, and last-run test state without a second discovery step."
+    },
+    {
+      "title": "Proactive doc and test gap surfacing",
+      "detail": "Because the context index sees the same project graph, it flags which linked models have missing descriptions or zero tests at resolution time, turning a definition lookup into an actionable coverage finding."
+    },
+    {
+      "title": "Gap remediation handoff",
+      "detail": "After surfacing a documentation or test gap, the wizard offers to author the schema.yml docs and tests, optionally spawning a test_writer subagent to fill coverage, then a validation subagent to confirm the new tests pass."
+    }
+  ],
+  "tools": [
+    {
+      "name": "mcp__dbt_index__context",
+      "signature": "mcp__dbt_index__context(query, kind?, resolve_synonyms?, include_linked_models?, surface_gaps?)",
+      "purpose": "Search the glossary, fiscal, and org business-context index with synonym resolution, mapping business jargon to canonical dbt terms, the metrics that define them, and the linked models that materialize them. Optionally flags doc and test coverage gaps on the linked models.",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "desc": "The business-language phrase to resolve, e.g. \"annual revenue last fiscal year\"."
+        },
+        {
+          "name": "kind",
+          "type": "enum(glossary|fiscal|org|all)",
+          "desc": "Scope the search to a context domain; defaults to all."
+        },
+        {
+          "name": "resolve_synonyms",
+          "type": "boolean",
+          "desc": "Expand the query through the synonym graph (e.g. annual revenue -> ARR) before matching. Default true."
+        },
+        {
+          "name": "include_linked_models",
+          "type": "boolean",
+          "desc": "Attach the canonical metric and linked dbt models to each match. Default true."
+        },
+        {
+          "name": "surface_gaps",
+          "type": "boolean",
+          "desc": "Annotate linked models with missing-doc and zero-test flags. Default true."
+        }
+      ],
+      "returns": "Ranked context matches, each with the canonical term, the matched synonyms, an optional MetricFlow metric, the linked models with their layer and materialization, and per-model doc/test coverage flags."
+    },
+    {
+      "name": "mcp__dbt_index__describe",
+      "signature": "mcp__dbt_index__describe(node, include_columns?, include_tests?, include_lineage?, include_compiled_sql?)",
+      "purpose": "Full node introspection for a model resolved by context: columns, compiled SQL, last-run test results, lineage, catalog types, grain, PK markers, schema, and materialization.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "The dbt node to introspect, e.g. fct_arr or dim_customers."
+        },
+        {
+          "name": "include_columns",
+          "type": "boolean",
+          "desc": "Return the column list with catalog types and PK markers. Default true."
+        },
+        {
+          "name": "include_tests",
+          "type": "boolean",
+          "desc": "Return last-run test results (pass/fail) attached to the node and its columns. Default true."
+        },
+        {
+          "name": "include_lineage",
+          "type": "boolean",
+          "desc": "Return immediate upstream and downstream edges. Default true."
+        },
+        {
+          "name": "include_compiled_sql",
+          "type": "boolean",
+          "desc": "Return the compiled SQL with Jinja resolved. Default false."
+        }
+      ],
+      "returns": "A structured node profile: grain, PK, materialization, schema, columns with types, test results, and lineage edges."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "What model holds our annual revenue for last fiscal year, and is it documented?",
+      "intent": "Resolve the business term ARR to its canonical model and check doc/test coverage.",
+      "invokes": [
+        "mcp__dbt_index__context",
+        "mcp__dbt_index__describe"
+      ]
+    },
+    {
+      "prompt": "A stakeholder asked for net revenue retention. Which metric and model is that?",
+      "intent": "Map NRR jargon to the canonical MetricFlow metric and linked model.",
+      "invokes": [
+        "mcp__dbt_index__context",
+        "mcp__dbt_index__describe"
+      ]
+    },
+    {
+      "prompt": "Where do we define churn, and does the model behind it have tests?",
+      "intent": "Resolve churn to logo_churn_rate, surface the linked model, and report test gaps.",
+      "invokes": [
+        "mcp__dbt_index__context",
+        "mcp__dbt_index__describe"
+      ]
+    },
+    {
+      "prompt": "Resolve \"active customers in the current quarter\" to a model and tell me its grain.",
+      "intent": "Fiscal-aware resolution plus grain confirmation via introspection.",
+      "invokes": [
+        "mcp__dbt_index__context",
+        "mcp__dbt_index__describe"
+      ]
+    },
+    {
+      "prompt": "Which gold-layer models that back our revenue metrics are missing descriptions?",
+      "intent": "Use context gap surfacing scoped to revenue-linked gold models.",
+      "invokes": [
+        "mcp__dbt_index__context"
+      ]
+    },
+    {
+      "prompt": "The finance team says \"bookings\" but I can't find a model called that. What's the canonical term?",
+      "intent": "Synonym resolution from a business alias with no literal SQL match.",
+      "invokes": [
+        "mcp__dbt_index__context",
+        "mcp__dbt_index__describe"
+      ]
+    },
+    {
+      "prompt": "Resolve \"gross margin\" to its metric and, if the underlying model lacks tests, draft them.",
+      "intent": "Resolve term, surface test gap, hand off to test authoring.",
+      "invokes": [
+        "mcp__dbt_index__context",
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__dbt_test"
+      ]
+    }
+  ],
+  "interaction": {
+    "scenario": "A finance stakeholder asks an SE for \"annual revenue last fiscal year.\" The wizard resolves the jargon to ARR, finds the canonical model, and discovers it is undocumented and undertested.",
+    "userPrompt": "Finance is asking for annual revenue last fiscal year. Which model is that, and is it trustworthy?",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Finance is asking for annual revenue last fiscal year. Which model is that, and is it trustworthy?"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "\"Annual revenue\" is business jargon, not a model name. I'll resolve it through the business-context index with synonym expansion rather than grepping the SQL, and let it attach the fiscal boundaries and linked models."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__context",
+        "toolArgs": "{\"query\":\"annual revenue last fiscal year\",\"kind\":\"all\",\"resolve_synonyms\":true,\"include_linked_models\":true,\"surface_gaps\":true}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"matches\":[{\"canonical_term\":\"ARR\",\"matched_synonyms\":[\"annual revenue\",\"annual recurring revenue\"],\"metric\":\"arr\",\"fiscal\":{\"last_fiscal_year\":{\"start\":\"2025-02-01\",\"end\":\"2026-01-31\"}},\"linked_models\":[{\"name\":\"fct_arr\",\"layer\":\"gold\",\"materialization\":\"table\",\"has_docs\":false,\"test_count\":0},{\"name\":\"int_subscription_revenue\",\"layer\":\"silver\",\"materialization\":\"view\",\"has_docs\":true,\"test_count\":3}]}]}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Resolved to canonical term ARR, metric arr, and gold model fct_arr. The org fiscal year ends Jan 31, so \"last fiscal year\" is FY2025 = 2025-02-01 to 2026-01-31, not the calendar year. The index flags fct_arr as undocumented with zero tests. Let me introspect it to confirm grain and last-run state."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"fct_arr\",\"include_columns\":true,\"include_tests\":true,\"include_lineage\":true}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"node\":\"fct_arr\",\"materialization\":\"table\",\"schema\":\"analytics_gold\",\"grain\":\"one row per customer per fiscal_period\",\"pk\":[\"customer_id\",\"fiscal_period\"],\"columns\":[{\"name\":\"customer_id\",\"type\":\"varchar\",\"pk\":true},{\"name\":\"fiscal_period\",\"type\":\"date\",\"pk\":true},{\"name\":\"arr_usd\",\"type\":\"number(38,2)\",\"pk\":false}],\"tests\":{\"total\":0,\"passing\":0,\"failing\":0},\"lineage\":{\"upstream\":[\"int_subscription_revenue\"],\"downstream\":[\"exposure:exec_revenue_dashboard\"]}}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Grain is one row per customer per fiscal_period, PK (customer_id, fiscal_period). It feeds the exec_revenue_dashboard exposure but has zero tests and no docs. That is a trust gap on a board-facing number. I'll offer to close it with a uniqueness test on the compound PK, not_null on arr_usd, and a column description."
+      },
+      {
+        "kind": "code",
+        "agent": "test_writer",
+        "codeLang": "yaml",
+        "code": "models:\n  - name: fct_arr\n    description: \"Annual recurring revenue (ARR) per customer per fiscal period. Grain: one row per customer per fiscal_period. Feeds exec_revenue_dashboard.\"\n    tests:\n      - dbt_utils.unique_combination_of_columns:\n          combination_of_columns: [customer_id, fiscal_period]\n    columns:\n      - name: customer_id\n        description: \"Customer identifier; FK to dim_customers.\"\n        tests: [not_null]\n      - name: fiscal_period\n        description: \"First day of the fiscal period this ARR snapshot covers.\"\n        tests: [not_null]\n      - name: arr_usd\n        description: \"Annual recurring revenue in USD for the customer in this fiscal period.\"\n        tests: [not_null]"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "verification",
+        "toolName": "mcp__dbt_index__dbt_test",
+        "toolArgs": "{\"select\":\"fct_arr\",\"defer\":true,\"state\":\"prod\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "verification",
+        "codeLang": "text",
+        "code": "PASS unique_combination_of_columns_fct_arr (0 failures)\nPASS not_null_fct_arr_customer_id\nPASS not_null_fct_arr_fiscal_period\nPASS not_null_fct_arr_arr_usd\n4 of 4 tests passed"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "\"Annual revenue last fiscal year\" resolves to the canonical term ARR (metric: arr), materialized in gold model fct_arr (schema analytics_gold), grain one row per customer per fiscal_period. Last fiscal year for this org is FY2025: 2025-02-01 through 2026-01-31, since the fiscal year ends Jan 31. Trust caveat at resolution time: fct_arr had zero tests and no docs despite feeding the exec_revenue_dashboard exposure. I added a description plus a compound-PK uniqueness test and three not_null tests; all 4 pass against deferred prod state. The model is now documented and covered for the number finance is asking about."
+      }
+    ]
+  },
+  "seNotes": [
+    "Lead with the jargon-to-canonical gap: type \"annual revenue\" and show context returns the ARR metric and fct_arr model, then point out a grep agent finds nothing because no SQL contains that phrase. That contrast is the whole demo.",
+    "Emphasize fiscal awareness. \"Last fiscal year\" resolving to the org's Feb 1 to Jan 31 boundaries (not the calendar year) is a detail finance audiences instantly trust and competitors rarely get right.",
+    "The gap surfacing is automatic, not a separate scan. surface_gaps is on by default, so the undocumented/untested flag comes back in the same context result, in one round trip.",
+    "Show the handoff. Resolving a term and then offering to author docs and tests in the same turn (with test_writer plus the validation subagent running against deferred prod state) is what turns a lookup into governance.",
+    "Stay product-accurate: context resolves and links, describe introspects. It does not run the metric itself. If they want the actual number, that is the metrics tool, which is a different page."
+  ],
+  "order": 8
+}

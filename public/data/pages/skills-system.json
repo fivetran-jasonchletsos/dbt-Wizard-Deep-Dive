@@ -1,0 +1,183 @@
+{
+  "slug": "skills-system",
+  "title": "Skills System",
+  "tagline": "Modular SKILL.md instruction sets with progressive disclosure",
+  "summary": "The Skills System extends dbt Wizard with modular, SKILL.md-driven instruction sets that encode domain-specific workflows. Each skill uses 3-level progressive disclosure for token efficiency: lightweight metadata frontmatter (~100 words) stays always in context for trigger matching, the SKILL.md body (kept under 500 lines) loads only when the skill triggers, and bundled resources (scripts/, references/, assets/) load only when a step needs them. When an SE describes a task whose wording matches a skill's trigger description, the matching skill auto-loads its body and can run bundled scripts deterministically. Installed examples include scenario-1 through scenario-4 and an onboarding tour.",
+  "whyDifferent": "A general AI coding agent carries one undifferentiated system prompt and re-reads or greps files every time it needs domain knowledge, paying full token cost for instructions it may never use. The Skills System instead keeps only ~100-word metadata per skill resident for trigger matching, then progressively loads the SKILL.md body and bundled resources only when a task actually matches. Bundled scripts/ run deterministic, repeatable logic instead of asking the model to re-derive the same steps from scratch, and references/ supply domain schemas on demand rather than bloating every prompt.",
+  "capabilities": [
+    {
+      "title": "3-level progressive disclosure",
+      "detail": "Level 1 is metadata frontmatter (name + description, ~100 words) that is always in context and used purely for trigger matching. Level 2 is the SKILL.md body (under 500 lines) loaded only once the skill triggers. Level 3 is bundled resources (scripts/, references/, assets/) loaded only when a specific step needs them. Tokens are spent in proportion to what the task actually uses."
+    },
+    {
+      "title": "Trigger-matched auto-loading",
+      "detail": "Each skill's description frontmatter declares the task wording it handles. When an SE's prompt matches that description, the skill auto-triggers: its SKILL.md body loads into context and its workflow takes over, without the SE naming the skill explicitly."
+    },
+    {
+      "title": "Deterministic bundled scripts",
+      "detail": "scripts/ holds executable Python/Bash for deterministic, repeatable tasks. Rather than re-deriving multi-step logic each run, the skill invokes the bundled script so the same inputs always produce the same outputs, which is what makes the workflow reliable to demo and to ship."
+    },
+    {
+      "title": "On-demand references and assets",
+      "detail": "references/ supplies domain docs, schemas, and API specs loaded only when a step calls for them; assets/ holds templates, icons, and boilerplate copied into the output (for example a schema.yml stub or a model header). Neither is resident until needed, keeping the base context lean."
+    },
+    {
+      "title": "Installed scenario library",
+      "detail": "Ships with scenario-1 (inventory shipment misallocation investigation), scenario-2 (extending int_orders_enriched with support ticket data), scenario-3 (upstream schema drift diagnosis where stg_products renames brand to brand_name), scenario-4 (customer segmentation model for Marketing), and onboarding (guided project tour covering lineage, grain, tests, and a first-PR change)."
+    },
+    {
+      "title": "Composes with the agent and tool layers",
+      "detail": "A triggered skill drives the same mcp__dbt_index__* tools and can spawn explorer, worker, validation, and test_writer subagents, then hand off via submit_summary. The skill encodes the workflow; the tools and subagents execute it against the live DuckDB index and warehouse."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "Walk me through this dbt project, I've never seen it before.",
+      "intent": "Match the onboarding skill's trigger and run the guided tour of lineage, grain, and tests.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Item A looks over-allocated across our stores, can you investigate the shipment misallocation?",
+      "intent": "Trigger scenario-1 (inventory shipment misallocation investigation), which loads its SKILL.md and runs a bundled analysis script.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage",
+        "mcp__dbt_index__warehouse"
+      ]
+    },
+    {
+      "prompt": "Extend int_orders_enriched so it carries support ticket data per order.",
+      "intent": "Trigger scenario-2; load the model-extension workflow and validate the edit.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__dbt_compile",
+        "mcp__dbt_index__dbt_run"
+      ]
+    },
+    {
+      "prompt": "Something upstream renamed a brand column and it broke downstream models, diagnose it.",
+      "intent": "Trigger scenario-3 (schema drift: stg_products brand to brand_name) and trace blast radius.",
+      "invokes": [
+        "mcp__dbt_index__changeset",
+        "mcp__dbt_index__impact",
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Marketing wants a customer segmentation model, build me one.",
+      "intent": "Trigger scenario-4; load the segmentation workflow with its bundled SQL template asset.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__warehouse",
+        "mcp__dbt_index__dbt_compile"
+      ]
+    },
+    {
+      "prompt": "Which skills are installed and what does each one handle?",
+      "intent": "Inspect the resident Level-1 metadata for every skill without loading any bodies.",
+      "invokes": []
+    }
+  ],
+  "interaction": {
+    "scenario": "An SE is demoing how a plain-English task auto-triggers a skill. They describe an inventory problem whose wording matches scenario-1's trigger description; the skill loads its SKILL.md body and runs a bundled deterministic script before answering.",
+    "userPrompt": "Item A looks over-allocated across our stores. Can you investigate the shipment misallocation?",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Item A looks over-allocated across our stores. Can you investigate the shipment misallocation?"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Matching the prompt against resident Level-1 skill metadata. The phrase 'shipment misallocation' matches the description frontmatter of scenario-1 (inventory shipment misallocation investigation). Auto-triggering it and loading its SKILL.md body."
+      },
+      {
+        "kind": "code",
+        "agent": "wizard",
+        "codeLang": "text",
+        "code": "trigger match: scenario-1 (score 0.91)\nloaded Level 2: scenarios/scenario-1/SKILL.md (412 lines)\ndeferred: scripts/, references/ (load on demand)"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "SKILL.md workflow step 1: identify the inventory, store, item, and shipment models and confirm their grain before touching allocation. Spawning an explorer for the scoped discovery."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "explorer",
+        "toolName": "mcp__dbt_index__search",
+        "toolArgs": "{\"query\":\"inventory shipment allocation store item\",\"mode\":\"bm25\",\"with_dag_context\":true}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "explorer",
+        "codeLang": "json",
+        "code": "{\"hits\":[{\"node\":\"int_inventory_allocation\",\"grain\":\"store_id + item_id\",\"materialization\":\"table\"},{\"node\":\"stg_shipments\",\"grain\":\"shipment_id\"},{\"node\":\"dim_stores\",\"grain\":\"store_id\"},{\"node\":\"fct_inventory\",\"grain\":\"store_id + item_id + snapshot_date\"}]}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "explorer",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"int_inventory_allocation\",\"include\":[\"columns\",\"tests\",\"lineage\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "explorer",
+        "codeLang": "json",
+        "code": "{\"node\":\"int_inventory_allocation\",\"pk\":[\"store_id\",\"item_id\"],\"columns\":[\"store_id\",\"item_id\",\"allocated_units\",\"on_hand_units\"],\"tests\":{\"unique_combination\":\"pass\",\"not_null_allocated_units\":\"pass\"},\"upstream\":[\"stg_shipments\",\"fct_inventory\"]}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "SKILL.md workflow step 2: run the bundled deterministic check. Loading Level 3 resource scripts/check_overallocation.py, which compares allocated_units against on_hand_units per store for the target item and flags overage rows. The script issues a read-only warehouse query rather than re-deriving the logic."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "worker",
+        "toolName": "mcp__dbt_index__warehouse",
+        "toolArgs": "{\"sql\":\"select store_id, allocated_units, on_hand_units, allocated_units - on_hand_units as overage from analytics.int_inventory_allocation where item_id = 'A' and allocated_units > on_hand_units order by overage desc\",\"read_only\":true}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "worker",
+        "codeLang": "json",
+        "code": "{\"rows\":[{\"store_id\":\"S-104\",\"allocated_units\":320,\"on_hand_units\":210,\"overage\":110},{\"store_id\":\"S-088\",\"allocated_units\":180,\"on_hand_units\":140,\"overage\":40},{\"store_id\":\"S-217\",\"allocated_units\":95,\"on_hand_units\":80,\"overage\":15}],\"row_count\":3,\"total_overage\":165}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "SKILL.md workflow step 3: trace where the inflated allocation propagates so I can scope a fix. Running a DAG impact report on the allocated_units column."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__impact",
+        "toolArgs": "{\"node\":\"int_inventory_allocation\",\"column\":\"allocated_units\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"downstream\":[{\"node\":\"fct_store_replenishment\",\"severity\":\"high\"},{\"node\":\"dim_store_health\",\"severity\":\"medium\"}],\"critical\":0,\"high\":1,\"medium\":1}"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "scenario-1 triggered from your wording (no skill name needed) and loaded its SKILL.md body plus the bundled scripts/check_overallocation.py only when step 2 needed it. Findings: Item A is over-allocated at 3 stores for 165 units total, concentrated at S-104 (110-unit overage, allocated 320 vs 210 on hand). The inflated allocated_units flows into fct_store_replenishment (high severity) and dim_store_health (medium). Grain is clean (store_id + item_id, unique test passing), so the issue is allocation logic, not a fan-out. Next per the skill's workflow: build an overage model isolating these rows, compile it, and preview without materializing. Say the word and I'll author it and run the validation subagent before any merge."
+      }
+    ]
+  },
+  "seNotes": [
+    "Lead with the token-efficiency story: only ~100-word metadata per skill is always resident. Bodies (under 500 lines) and bundled resources load only on trigger, so context cost scales with what the task actually uses, unlike a general agent that re-greps files every turn.",
+    "Demo the auto-trigger: the SE never names the skill. The prompt wording matches the skill's description frontmatter and the SKILL.md loads itself. Use scenario-1's 'shipment misallocation' phrasing to make the match obvious.",
+    "Emphasize that scripts/ run deterministically. The same inputs produce the same outputs because the logic lives in bundled Python/Bash, not in model improvisation, which is what makes the workflow reproducible on stage.",
+    "Name the three resource types precisely: scripts/ (executable, deterministic), references/ (docs/schemas/API specs loaded on demand), assets/ (templates/boilerplate copied into output). Don't conflate them.",
+    "Skills compose with the rest of the product: a triggered skill still drives mcp__dbt_index__* tools, can spawn explorer/worker/validation/test_writer subagents, and hands off via submit_summary. The skill is the workflow; the tools and subagents are the execution."
+  ],
+  "tools": [],
+  "order": 9
+}

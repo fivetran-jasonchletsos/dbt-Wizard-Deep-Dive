@@ -1,0 +1,309 @@
+{
+  "slug": "dbt-native-operations",
+  "title": "dbt-Native Operations",
+  "tagline": "Structured dbt build, run, test, compile, parse with deferred state",
+  "summary": "dbt Wizard executes dbt build, run, compile, test, and parse as structured tool calls (typed argument objects), not shell strings that the agent has to assemble and parse back out of stdout. Each call supports deferred state (--defer --state) so dev iterations build only the changed model and its downstream against production-built upstream relations, avoiding a full warehouse rebuild. On success, run results (pass/fail status, row counts, node timings) flow back into the local DuckDB index, keeping lineage, test state, and run metadata current without a separate refresh step.",
+  "whyDifferent": "A general AI coding agent shells out (e.g. bash: dbt build -s my_model) and then has to scrape free-text stdout to guess what passed, failed, or how long it took, and it never updates any internal model of the project. dbt Wizard issues a typed dbt_build call, receives a structured result object (per-node status, rows, seconds, error messages), and auto-refreshes the index so the very next impact, lineage, or describe call reflects the build it just ran. Deferred state means it builds the one changed model against prod-built upstreams instead of rebuilding the whole DAG, which a file-reading agent has no mechanism to express.",
+  "capabilities": [
+    {
+      "title": "Structured CLI, not shell strings",
+      "detail": "dbt_build / dbt_run / dbt_compile / dbt_test / dbt_parse are invoked as typed tool calls with explicit args (select, exclude, defer, state, full_refresh, vars). No shell string assembly, no stdout scraping. Results return as structured objects the agent can reason over directly."
+    },
+    {
+      "title": "Deferred state dev builds",
+      "detail": "--defer --state lets a dev build resolve unselected {{ ref() }} dependencies to production-built relations. The SE builds only the changed model plus its downstream instead of the whole DAG, cutting warehouse compute and wall-clock time on every iteration."
+    },
+    {
+      "title": "Index auto-refresh on success",
+      "detail": "A successful build/run/test/parse writes run results back into the local DuckDB index, last-run state (pass/fail), row counts, and node timings update so the next impact, lineage, describe, or timings call is current with zero manual re-index."
+    },
+    {
+      "title": "Selection-aware downstream builds",
+      "detail": "Selector syntax (e.g. state:modified+, model_name+) is passed structurally so the agent can build a changed model and everything downstream of it in one call, then test just that subgraph."
+    },
+    {
+      "title": "Validation pipeline hook",
+      "detail": "After a model edit the validation subagent automatically runs SQL checks, a dbt run --defer, and a prod-vs-dev comparison before merge, reusing the same structured dbt tool calls rather than ad hoc shell runs."
+    },
+    {
+      "title": "Compile and parse without full run",
+      "detail": "dbt_compile resolves Jinja and produces compiled SQL, and dbt_parse rebuilds the manifest, both as structured calls so the SE can validate refs, macros, and graph integrity without spending warehouse compute on a materialization."
+    }
+  ],
+  "tools": [
+    {
+      "name": "mcp__dbt_index__dbt_build",
+      "signature": "mcp__dbt_index__dbt_build(select?, exclude?, defer?, state?, full_refresh?, vars?, fail_fast?)",
+      "purpose": "Run models, tests, snapshots, and seeds for a selected subgraph in DAG order as a single structured CLI call, with deferred-state support for cost-efficient dev builds. Auto-refreshes the index on success.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "dbt selector, e.g. 'int_orders_enriched+' or 'state:modified+' to build a node plus its downstream."
+        },
+        {
+          "name": "exclude",
+          "type": "string",
+          "desc": "Selector for nodes to skip from the selected set."
+        },
+        {
+          "name": "defer",
+          "type": "boolean",
+          "desc": "When true, unselected refs resolve to the state-manifest (production) relations instead of being rebuilt."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Path or pointer to the deferred state manifest (production or prior dev artifacts)."
+        },
+        {
+          "name": "full_refresh",
+          "type": "boolean",
+          "desc": "Force incremental models to rebuild from scratch."
+        },
+        {
+          "name": "vars",
+          "type": "object",
+          "desc": "dbt vars passed structurally into the run."
+        },
+        {
+          "name": "fail_fast",
+          "type": "boolean",
+          "desc": "Stop the build at the first node failure instead of continuing the run."
+        }
+      ],
+      "returns": "Structured result: per-node status (success/error/skipped), rows affected, execution seconds, materialization, and any error message; overall pass/fail summary. Index is refreshed with the new last-run state."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_run",
+      "signature": "mcp__dbt_index__dbt_run(select?, exclude?, defer?, state?, full_refresh?, vars?)",
+      "purpose": "Materialize models only (no tests/seeds/snapshots) for a selected subgraph, with deferred state. Used by the validation subagent for dbt run --defer prod-vs-dev checks.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "Selector for models to materialize, e.g. 'fct_orders' or 'int_orders_enriched+'."
+        },
+        {
+          "name": "defer",
+          "type": "boolean",
+          "desc": "Resolve unselected refs to the state manifest's production relations."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Deferred state manifest pointer."
+        },
+        {
+          "name": "full_refresh",
+          "type": "boolean",
+          "desc": "Rebuild incremental models from scratch."
+        }
+      ],
+      "returns": "Structured per-node run results (status, rows, seconds, materialization). Index last-run state refreshed on success."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_compile",
+      "signature": "mcp__dbt_index__dbt_compile(select?, vars?, inline?)",
+      "purpose": "Resolve Jinja ({{ ref() }}, {{ source() }}, macros) into compiled SQL for selected nodes without running against the warehouse. Validates references and graph wiring cheaply.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "Selector for nodes to compile."
+        },
+        {
+          "name": "vars",
+          "type": "object",
+          "desc": "dbt vars used during compilation."
+        },
+        {
+          "name": "inline",
+          "type": "string",
+          "desc": "Optional inline SQL to compile against the project context."
+        }
+      ],
+      "returns": "Compiled SQL per node plus resolved ref/source targets and any compilation errors. Cheap, no warehouse compute."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_test",
+      "signature": "mcp__dbt_index__dbt_test(select?, exclude?, defer?, state?, store_failures?)",
+      "purpose": "Execute schema and data tests for a selected subgraph as a structured call, returning typed pass/fail results that flow into the index.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "Selector for tests, e.g. 'int_orders_enriched' or 'fct_orders+' to test a node and downstream."
+        },
+        {
+          "name": "exclude",
+          "type": "string",
+          "desc": "Selector for tests to skip from the selected set."
+        },
+        {
+          "name": "defer",
+          "type": "boolean",
+          "desc": "Resolve unselected refs to production relations during testing."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Deferred state manifest pointer."
+        },
+        {
+          "name": "store_failures",
+          "type": "boolean",
+          "desc": "Persist failing rows to a table for inspection."
+        }
+      ],
+      "returns": "Per-test status (pass/fail/error), failing row counts, and the column/node each test targets. Index test state refreshed on success."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_parse",
+      "signature": "mcp__dbt_index__dbt_parse(vars?)",
+      "purpose": "Parse the project and rebuild the manifest to validate graph integrity (refs, sources, configs, macro resolution) without any warehouse execution.",
+      "params": [
+        {
+          "name": "vars",
+          "type": "object",
+          "desc": "dbt vars applied during parse."
+        }
+      ],
+      "returns": "Parse status, manifest node counts, and any parse-time errors (broken refs, invalid configs). Index graph metadata refreshed on success."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "Build int_orders_enriched and everything downstream of it with defer against prod state, then run the tests on that subgraph.",
+      "intent": "Cost-efficient deferred dev build of a changed model plus downstream, followed by scoped tests.",
+      "invokes": [
+        "mcp__dbt_index__dbt_build",
+        "mcp__dbt_index__dbt_test"
+      ]
+    },
+    {
+      "prompt": "Just compile fct_orders so I can see the resolved SQL after my ref change, don't touch the warehouse.",
+      "intent": "Validate Jinja and refs cheaply without materializing.",
+      "invokes": [
+        "mcp__dbt_index__dbt_compile"
+      ]
+    },
+    {
+      "prompt": "Parse the project, I think I broke a ref in stg_products.",
+      "intent": "Check manifest/graph integrity after a suspected broken reference.",
+      "invokes": [
+        "mcp__dbt_index__dbt_parse"
+      ]
+    },
+    {
+      "prompt": "Run dim_customers in defer mode against production so I'm not rebuilding the whole staging layer.",
+      "intent": "Materialize one model against prod-built upstreams to save compute.",
+      "invokes": [
+        "mcp__dbt_index__dbt_run"
+      ]
+    },
+    {
+      "prompt": "Build only the models I changed plus their children and test the result before I open the PR.",
+      "intent": "state:modified+ deferred build and test as a pre-PR gate.",
+      "invokes": [
+        "mcp__dbt_index__dbt_build",
+        "mcp__dbt_index__dbt_test"
+      ]
+    },
+    {
+      "prompt": "Full-refresh int_orders_enriched then test it, the incremental logic looks off.",
+      "intent": "Force a from-scratch incremental rebuild and validate.",
+      "invokes": [
+        "mcp__dbt_index__dbt_build",
+        "mcp__dbt_index__dbt_test"
+      ]
+    },
+    {
+      "prompt": "Test fct_orders and everything downstream, store the failing rows so I can inspect them.",
+      "intent": "Scoped downstream test run with persisted failures.",
+      "invokes": [
+        "mcp__dbt_index__dbt_test"
+      ]
+    }
+  ],
+  "interaction": {
+    "scenario": "An SE has just edited int_orders_enriched to add a support-ticket join and wants a cheap deferred dev build of that model plus its downstream against production state, then tests, before opening a PR.",
+    "userPrompt": "I just changed int_orders_enriched. Build it plus everything downstream with --defer against prod state so I'm not rebuilding all of staging, then run the tests on that subgraph.",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "I just changed int_orders_enriched. Build it plus everything downstream with --defer against prod state so I'm not rebuilding all of staging, then run the tests on that subgraph."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "I'll do a deferred build scoped to int_orders_enriched and its descendants. With --defer --state pointed at prod, unselected upstream refs (stg_orders, stg_products, etc.) resolve to the production-built relations, so we only materialize the changed model and what depends on it. First let me confirm the downstream blast radius so I select the right subgraph."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__lineage",
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"direction\":\"downstream\",\"max_depth\":3}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"root\":\"int_orders_enriched\",\"downstream\":[{\"node\":\"fct_orders\",\"hop\":1,\"materialization\":\"incremental\"},{\"node\":\"dim_customers\",\"hop\":1,\"materialization\":\"table\"},{\"node\":\"mart_revenue_daily\",\"hop\":2,\"materialization\":\"table\"}],\"downstream_count\":3}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Three downstream nodes: fct_orders, dim_customers, mart_revenue_daily. I'll select int_orders_enriched+ which captures the node and all descendants, and defer everything else to prod state."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_build",
+        "toolArgs": "{\"select\":\"int_orders_enriched+\",\"defer\":true,\"state\":\"prod\",\"full_refresh\":false}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"summary\":{\"status\":\"success\",\"models\":4,\"tests\":0,\"deferred_refs\":5},\"nodes\":[{\"node\":\"int_orders_enriched\",\"status\":\"success\",\"rows\":182431,\"seconds\":7.4,\"materialization\":\"view\"},{\"node\":\"fct_orders\",\"status\":\"success\",\"rows\":182431,\"seconds\":11.9,\"materialization\":\"incremental\"},{\"node\":\"dim_customers\",\"status\":\"success\",\"rows\":24310,\"seconds\":3.2,\"materialization\":\"table\"},{\"node\":\"mart_revenue_daily\",\"status\":\"success\",\"rows\":1460,\"seconds\":2.1,\"materialization\":\"table\"}],\"index_refreshed\":true}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Build succeeded, 4 models, 5 upstream refs resolved to prod relations (no staging rebuild). The index auto-refreshed with the new last-run state and timings. Now testing the same subgraph."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_test",
+        "toolArgs": "{\"select\":\"int_orders_enriched+\",\"defer\":true,\"state\":\"prod\",\"store_failures\":true}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"summary\":{\"status\":\"fail\",\"pass\":11,\"fail\":1,\"error\":0},\"tests\":[{\"test\":\"not_null_int_orders_enriched_ticket_id\",\"node\":\"int_orders_enriched\",\"column\":\"ticket_id\",\"status\":\"pass\"},{\"test\":\"unique_fct_orders_order_id\",\"node\":\"fct_orders\",\"column\":\"order_id\",\"status\":\"pass\"},{\"test\":\"not_null_fct_orders_support_ticket_count\",\"node\":\"fct_orders\",\"column\":\"support_ticket_count\",\"status\":\"fail\",\"failing_rows\":318,\"stored_at\":\"dbt_test_failures.not_null_fct_orders_support_ticket_count\"}],\"index_refreshed\":true}"
+      },
+      {
+        "kind": "narration",
+        "agent": "verification",
+        "body": "One failing test: not_null on fct_orders.support_ticket_count, 318 failing rows. The left join to support tickets is producing NULLs for orders with no tickets; those should coalesce to 0. The new test state is already in the index, so impact and describe calls now reflect this failure."
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Deferred build done cheaply: 4 models materialized (int_orders_enriched + fct_orders + dim_customers + mart_revenue_daily) in ~24.6s total, with 5 upstream refs deferred to prod so staging was not rebuilt. Tests: 11 pass, 1 fail. The failure is not_null_fct_orders_support_ticket_count (318 rows) because your new left join leaves support_ticket_count NULL for ticket-less orders. Fix: COALESCE(support_ticket_count, 0) in int_orders_enriched, then re-run dbt_build on int_orders_enriched+ defer=prod and dbt_test on the same subgraph. The failed result and timings are already written into the index, and on your next edit the validation subagent will re-run this same deferred run-and-compare before you merge."
+      }
+    ]
+  },
+  "seNotes": [
+    "Lead with the structured-vs-shell distinction: a general agent runs 'bash: dbt build' and scrapes stdout, dbt Wizard sends typed args and gets a typed result object (per-node status, rows, seconds) it can reason over directly. That is the whole pitch in one sentence.",
+    "The key demo is --defer --state: select int_orders_enriched+ and show that 5 upstream refs resolved to PROD relations instead of rebuilding staging. Call out the warehouse compute and wall-clock savings explicitly, that is what budget-conscious data teams care about.",
+    "Emphasize index auto-refresh: after the build/test, the very next impact/lineage/describe/timings call reflects the new pass/fail and timings with zero manual re-index. No separate 'dbt docs generate' or re-parse step.",
+    "Use the selector '+' suffix deliberately, int_orders_enriched+ means the node AND all descendants in one call, then test the same subgraph. Pair it with state:modified+ for the pre-PR gate story.",
+    "Tie it to the validation pipeline: after any edit, the validation subagent automatically reuses these same structured dbt_run --defer and prod-vs-dev calls before merge, so this page's tools are also the engine behind safe PR validation, not a separate manual flow."
+  ],
+  "order": 5
+}

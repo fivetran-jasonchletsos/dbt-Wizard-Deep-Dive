@@ -1,0 +1,236 @@
+{
+  "slug": "overview",
+  "title": "Overview — Why dbt Wizard Is Different",
+  "tagline": "A dbt agent that queries a live DAG graph, not files",
+  "summary": "dbt Wizard is an AI agent for dbt projects, built by Fivetran and operating on dbt Labs' dbt. Instead of reading source files and grepping text, it answers questions against a live, queryable index of the project: models, columns, tests, and edges held in a local DuckDB index, joined to the warehouse as one unified graph. Every search, impact, and lineage call returns DAG context inline — parents, children, grain, PK markers, materialization, and last-run test state — because the index already reflects the actual last-run state. Interaction happens through structured MCP tool calls (mcp__dbt_index__*), not shell strings or raw file access.",
+  "whyDifferent": "A general AI coding agent treats a dbt project as a directory of text: it opens .sql and .yml files, greps for a column name, and infers relationships from {{ ref() }} strings it happens to read. It has no notion of grain, PK, materialization, or whether a test currently passes — and a textual match for brand_name tells you nothing about blast radius. dbt Wizard instead traverses a precomputed graph where edges are real lineage, results carry severity and test state, and the warehouse is one query away. The difference is structured graph intelligence versus pattern-matching over file contents.",
+  "capabilities": [
+    {
+      "title": "Local DuckDB project index",
+      "detail": "Models, columns, tests, and edges are indexed in a local DuckDB store that reflects the actual last-run state: pass/fail tests, run results, timings, grain, PK markers, schemas, and materializations are known out of the box, with no file parsing at query time."
+    },
+    {
+      "title": "Graph context on every result",
+      "detail": "search, lineage, describe, and impact don't return bare matches. Each result is decorated with its DAG neighborhood — immediate parents and children, grain, PK status, materialization, and current test state — so one call orients you instead of triggering ten follow-up file reads."
+    },
+    {
+      "title": "Structured tool calls, not shell or grep",
+      "detail": "All interaction is through typed mcp__dbt_index__* tool calls with named arguments and structured returns. There is no grep, no cat, no fuzzy file globbing — search can run BM25 over metadata or regex over raw/compiled SQL, but always with DAG context attached."
+    },
+    {
+      "title": "Warehouse as part of the same graph",
+      "detail": "mcp__dbt_index__warehouse runs read-only SQL directly against Snowflake/BigQuery for live previews, and dbt_show resolves full Jinja against the warehouse — so the agent reasons over both the modeled graph and live data without a dbt run."
+    },
+    {
+      "title": "Fast project orientation",
+      "detail": "An opening 'get me oriented' prompt resolves to a handful of describe/lineage/search calls that surface layers (bronze/silver/gold), grains, PKs, materializations, and failing tests in seconds — work that would otherwise mean reading dozens of files."
+    }
+  ],
+  "tools": [
+    {
+      "name": "mcp__dbt_index__describe",
+      "signature": "mcp__dbt_index__describe(node, include?)",
+      "purpose": "Full node introspection straight from the index: columns, compiled SQL, test results, lineage, and catalog types — including grain, PK markers, schema, and materialization.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Model/source name to introspect, e.g. fct_orders or stg_products."
+        },
+        {
+          "name": "include",
+          "type": "string[]?",
+          "desc": "Optional facets to expand: columns, compiled_sql, tests, lineage, catalog."
+        }
+      ],
+      "returns": "A structured node record: grain, PK column(s), materialization, schema, column list with types, last-run test pass/fail, and immediate upstream/downstream edges."
+    },
+    {
+      "name": "mcp__dbt_index__search",
+      "signature": "mcp__dbt_index__search(query, mode?, scope?, limit?)",
+      "purpose": "BM25 metadata search OR regex against raw/compiled SQL, with DAG context attached to every hit — used to locate models/columns by meaning or by literal SQL pattern.",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "desc": "Search terms (BM25) or a regex pattern when mode=regex."
+        },
+        {
+          "name": "mode",
+          "type": "string?",
+          "desc": "bm25 (default, metadata) or regex (raw/compiled SQL)."
+        },
+        {
+          "name": "scope",
+          "type": "string?",
+          "desc": "Optional subgraph/layer filter, e.g. silver or a tag/path selector."
+        },
+        {
+          "name": "limit",
+          "type": "int?",
+          "desc": "Max results to return."
+        }
+      ],
+      "returns": "Ranked matches, each with the node, the matched column/SQL span, and DAG context: parents, children, grain, materialization, and test status."
+    },
+    {
+      "name": "mcp__dbt_index__lineage",
+      "signature": "mcp__dbt_index__lineage(node, direction?, max_depth?, edge_types?, column?)",
+      "purpose": "Upstream/downstream traversal with hop-depth control and edge-type filtering, scoped to a subgraph — to map how a model or column connects through the DAG.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Anchor node for the traversal, e.g. dim_customers."
+        },
+        {
+          "name": "direction",
+          "type": "string?",
+          "desc": "upstream, downstream, or both."
+        },
+        {
+          "name": "max_depth",
+          "type": "int?",
+          "desc": "Hop limit; controls how far the traversal walks."
+        },
+        {
+          "name": "edge_types",
+          "type": "string[]?",
+          "desc": "Filter to edge kinds, e.g. ref, source, column-level."
+        },
+        {
+          "name": "column",
+          "type": "string?",
+          "desc": "Optional column to scope column-level lineage, e.g. brand_name."
+        }
+      ],
+      "returns": "An ordered list of nodes/edges per hop with grain and materialization on each node — a scoped subgraph rather than a flat file list."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "Get me oriented in this project — what are the layers, the core fact tables, their grain, and is anything failing tests right now?",
+      "intent": "Opening orientation; pull structure, grain, and test-state from the index instead of reading files.",
+      "invokes": [
+        "mcp__dbt_index__search",
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Describe fct_orders — I want its grain, primary key, materialization, columns, and current test status.",
+      "intent": "Single-node introspection from the index.",
+      "invokes": [
+        "mcp__dbt_index__describe"
+      ]
+    },
+    {
+      "prompt": "Where is brand_name actually produced and which downstream models consume it?",
+      "intent": "Column-level lineage rather than a text search for the string.",
+      "invokes": [
+        "mcp__dbt_index__lineage",
+        "mcp__dbt_index__search"
+      ]
+    },
+    {
+      "prompt": "Find every model in the silver layer that does a window function over order_id.",
+      "intent": "Regex SQL search scoped to a layer, with DAG context.",
+      "invokes": [
+        "mcp__dbt_index__search"
+      ]
+    },
+    {
+      "prompt": "Show me the full upstream chain for dim_customers, max 3 hops, ref edges only.",
+      "intent": "Depth- and edge-type-controlled lineage traversal.",
+      "invokes": [
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Which gold models depend on stg_products, and what's the grain of each?",
+      "intent": "Downstream traversal with grain decoration per node.",
+      "invokes": [
+        "mcp__dbt_index__lineage",
+        "mcp__dbt_index__describe"
+      ]
+    }
+  ],
+  "interaction": {
+    "scenario": "An SE opens an unfamiliar customer dbt project mid-demo and asks dbt Wizard for orientation. The goal is to show the wizard answering from the live index — grain, PKs, materializations, test state — rather than reading files.",
+    "userPrompt": "Get me oriented in this project. What layers exist, what are the core fact tables and their grain, and is anything failing tests right now?",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Get me oriented in this project. What layers exist, what are the core fact tables and their grain, and is anything failing tests right now?"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "I won't read files for this. I'll query the local DuckDB index, which already knows layers, grain, PKs, materializations, and last-run test state. Starting with a metadata search to map the layers and locate fact tables, then introspecting the core facts, then checking the failing-test surface."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__search",
+        "toolArgs": "{\"query\":\"fact table order revenue grain\",\"mode\":\"bm25\",\"limit\":10}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"hits\":[{\"node\":\"fct_orders\",\"layer\":\"gold\",\"materialization\":\"incremental\",\"grain\":\"one row per order_id\",\"pk\":\"order_id\",\"children\":[\"rpt_revenue_daily\"],\"tests\":{\"pass\":7,\"fail\":1}},{\"node\":\"fct_order_items\",\"layer\":\"gold\",\"materialization\":\"incremental\",\"grain\":\"one row per order_id+product_id\",\"pk\":\"order_item_id\",\"tests\":{\"pass\":5,\"fail\":0}},{\"node\":\"int_orders_enriched\",\"layer\":\"silver\",\"materialization\":\"view\",\"grain\":\"one row per order_id\",\"tests\":{\"pass\":4,\"fail\":0}}],\"layers_seen\":[\"bronze\",\"silver\",\"gold\"]}",
+        "body": "Three layers detected (bronze/silver/gold). Two gold facts surfaced with grain, PK, and test counts inline. fct_orders shows 1 failing test."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Every hit already carries grain, PK, materialization, and test status — no follow-up file reads needed. fct_orders has a failing test; I'll introspect it fully to name the failure and confirm grain."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"fct_orders\",\"include\":[\"columns\",\"tests\",\"lineage\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"node\":\"fct_orders\",\"layer\":\"gold\",\"schema\":\"analytics_gold\",\"materialization\":\"incremental\",\"grain\":\"one row per order_id\",\"pk\":[\"order_id\"],\"columns\":[{\"name\":\"order_id\",\"type\":\"varchar\",\"pk\":true},{\"name\":\"customer_id\",\"type\":\"varchar\"},{\"name\":\"order_total\",\"type\":\"number(38,2)\"},{\"name\":\"order_date\",\"type\":\"date\"}],\"tests\":[{\"name\":\"unique_order_id\",\"status\":\"pass\"},{\"name\":\"not_null_order_total\",\"status\":\"fail\",\"failures\":214}],\"parents\":[\"int_orders_enriched\",\"dim_customers\"],\"children\":[\"rpt_revenue_daily\"]}",
+        "body": "Failing test: not_null_order_total, 214 failing rows. Parents: int_orders_enriched, dim_customers. Child: rpt_revenue_daily."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "The null order_total is in a gold fact, so I want to know what consumes it before flagging severity. One scoped downstream traversal."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__lineage",
+        "toolArgs": "{\"node\":\"fct_orders\",\"direction\":\"downstream\",\"max_depth\":2,\"edge_types\":[\"ref\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"anchor\":\"fct_orders\",\"hops\":[{\"depth\":1,\"node\":\"rpt_revenue_daily\",\"layer\":\"gold\",\"materialization\":\"table\",\"grain\":\"one row per order_date\"},{\"depth\":2,\"node\":\"exposure:looker_revenue_dashboard\",\"type\":\"exposure\"}]}",
+        "body": "order_total feeds rpt_revenue_daily (daily revenue) and on to a Looker revenue dashboard exposure."
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Orientation, pulled live from the project index (no files read):\n\nLayers: bronze, silver, gold.\n\nCore gold facts:\n- fct_orders — incremental, schema analytics_gold, grain one row per order_id (PK order_id). Parents: int_orders_enriched, dim_customers.\n- fct_order_items — incremental, grain one row per order_id + product_id (PK order_item_id), all tests passing.\n\nSilver staging of note: int_orders_enriched — view, grain one row per order_id, tests passing.\n\nFailing test right now: fct_orders.not_null_order_total — 214 null order_total rows. That column flows downstream into rpt_revenue_daily (daily revenue) and into the looker_revenue_dashboard exposure, so the nulls are reaching a customer-facing revenue report. That's the first thing I'd chase. Want me to run an impact report on order_total, or preview the offending rows against the warehouse?"
+      }
+    ]
+  },
+  "seNotes": [
+    "Lead with the contrast: a general coding agent greps file text for brand_name and infers ref() relationships from strings it happens to open. dbt Wizard answers from a precomputed graph, so one orientation prompt returns grain, PK, materialization, and live test state instead of triggering a dozen file reads.",
+    "Make the 'no file reads' point explicit on stage. The index is a local DuckDB store of models/columns/tests/edges reflecting last-run state; that's why grain and pass/fail tests are known instantly without parsing .sql or .yml.",
+    "Show that results carry graph context inline. After the search hit, do NOT open a file — point out parents, children, grain, and test counts are already in the result payload. That's the whole thesis in one frame.",
+    "Emphasize structured tool calls over shell: all calls are typed mcp__dbt_index__* with named args. search can do BM25 metadata OR regex over compiled SQL, but it's never bare grep — DAG context is always attached.",
+    "Tee up the warehouse-as-one-graph follow-up (warehouse read-only preview or dbt_show with full Jinja) so the audience sees the modeled graph and live data are reachable in the same session without a full dbt run."
+  ],
+  "order": 1
+}

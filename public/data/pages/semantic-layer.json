@@ -1,0 +1,217 @@
+{
+  "slug": "semantic-layer",
+  "title": "Semantic Layer & Metrics",
+  "tagline": "Governed MetricFlow queries over the dbt semantic layer",
+  "summary": "dbt Wizard answers business-metric questions by querying the MetricFlow semantic layer through mcp__dbt_index__metrics rather than hand-writing SQL. It can list available metrics, describe a metric's measures, dimensions, and allowed groupings, dry-run a requested grouping to validate that the dimensions and time grain are legal before execution, then run the query through MetricFlow and return governed results. Because the metric definition is the single source of truth, the numbers it returns match every dashboard and report that consumes the same metric, with no risk of a one-off SQL query drifting from the canonical logic.",
+  "whyDifferent": "A general AI coding agent asked for \"revenue by month by segment\" would grep for a revenue column, find some fct_orders table, and improvise an aggregation with its own GROUP BY, join, and filter choices, none of which are guaranteed to match how revenue is officially defined. dbt Wizard instead resolves the request against governed MetricFlow metric definitions, so the aggregation logic, joins, and dimension grain come from the semantic layer rather than from the model's guesses. The dry-run step validates the requested dimensions and time grain against the metric's declared groupings before any compute is spent, catching invalid slices that a file-reading agent would only discover after returning wrong numbers.",
+  "capabilities": [
+    {
+      "title": "List governed metrics",
+      "detail": "Enumerate every metric defined in the semantic layer (e.g. total_revenue, order_count, avg_order_value) so the SE can see the canonical, dashboard-backed metric catalog instead of guessing column names in fct_orders."
+    },
+    {
+      "title": "Describe metric structure",
+      "detail": "Introspect a metric's type, underlying measure and aggregation, the model it is built on, its time dimension and grain, and the full set of valid grouping dimensions a caller may slice by."
+    },
+    {
+      "title": "Dry-run dimension validation",
+      "detail": "Validate a requested grouping (for example by month and by customer_segment) against the metric's allowed dimensions and time granularities, and return the compiled MetricFlow SQL without spending warehouse compute, catching illegal slices before execution."
+    },
+    {
+      "title": "Run governed results",
+      "detail": "Execute the validated query through MetricFlow and return rows whose aggregation logic is identical to every report consuming the same metric, eliminating the drift you get from ad-hoc hand-written SQL."
+    },
+    {
+      "title": "Business-jargon resolution",
+      "detail": "Pair with mcp__dbt_index__context so phrases like \"annual revenue\" or \"ARR\" resolve to the canonical metric name before the metrics query runs, instead of the agent inventing an aggregation that does not exist."
+    }
+  ],
+  "tools": [
+    {
+      "name": "mcp__dbt_index__metrics",
+      "signature": "mcp__dbt_index__metrics(action, metric?, group_by?, time_grain?, where?, limit?)",
+      "purpose": "Query the MetricFlow semantic layer: list available metrics, describe a metric's measures and valid dimensions, dry-run a grouping to validate dimensions and time grain without compute, or run the query and return governed result rows.",
+      "params": [
+        {
+          "name": "action",
+          "type": "enum(list|describe|dry-run|run)",
+          "desc": "Which semantic-layer operation to perform. list enumerates metrics; describe introspects one metric; dry-run validates and compiles without executing; run executes through MetricFlow."
+        },
+        {
+          "name": "metric",
+          "type": "string",
+          "desc": "Metric name to describe, dry-run, or run (e.g. total_revenue). Omitted for action=list."
+        },
+        {
+          "name": "group_by",
+          "type": "string[]",
+          "desc": "Dimensions to slice by (e.g. customer__segment, metric_time). Validated against the metric's declared dimensions on dry-run."
+        },
+        {
+          "name": "time_grain",
+          "type": "enum(day|week|month|quarter|year)",
+          "desc": "Time granularity for the metric_time dimension; validated against the metric's supported grains."
+        },
+        {
+          "name": "where",
+          "type": "string",
+          "desc": "Optional MetricFlow filter predicate applied to dimensions."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "desc": "Optional row cap on returned results."
+        }
+      ],
+      "returns": "For list: an array of metric names with type and label. For describe: metric type, measure/aggregation, base model, time dimension and supported grains, and valid grouping dimensions. For dry-run: validity status plus the compiled MetricFlow SQL and any rejected dimensions. For run: governed result rows."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "What metrics do we have defined in the semantic layer?",
+      "intent": "List the governed metric catalog before slicing anything.",
+      "invokes": [
+        "mcp__dbt_index__metrics"
+      ]
+    },
+    {
+      "prompt": "Show me total_revenue broken out by month and by customer segment.",
+      "intent": "Request a governed metric sliced by a time grain and a categorical dimension.",
+      "invokes": [
+        "mcp__dbt_index__metrics"
+      ]
+    },
+    {
+      "prompt": "Describe the avg_order_value metric and what dimensions I'm allowed to group it by.",
+      "intent": "Introspect a metric's structure and valid groupings.",
+      "invokes": [
+        "mcp__dbt_index__metrics"
+      ]
+    },
+    {
+      "prompt": "Can I slice total_revenue by warehouse region? Dry-run it first before we burn compute.",
+      "intent": "Validate a proposed dimension against the metric definition without executing.",
+      "invokes": [
+        "mcp__dbt_index__metrics"
+      ]
+    },
+    {
+      "prompt": "What's our ARR by quarter? Make sure the number matches the exec dashboard.",
+      "intent": "Resolve business jargon to a canonical metric, then run it through the governed definition.",
+      "invokes": [
+        "mcp__dbt_index__context",
+        "mcp__dbt_index__metrics"
+      ]
+    },
+    {
+      "prompt": "Run order_count by month for the last fiscal year and only for the Enterprise segment.",
+      "intent": "Execute a governed metric with a time grain and a filter predicate.",
+      "invokes": [
+        "mcp__dbt_index__metrics"
+      ]
+    },
+    {
+      "prompt": "Marketing wants revenue per segment per month in a chart. Validate the grain then pull the rows.",
+      "intent": "Dry-run to confirm dimensions, then run the governed query for a stakeholder deliverable.",
+      "invokes": [
+        "mcp__dbt_index__metrics"
+      ]
+    }
+  ],
+  "interaction": {
+    "scenario": "A business stakeholder pings the SE asking for monthly revenue split by customer segment for a board slide. The SE puts the question to dbt Wizard, which resolves it against the semantic layer instead of hand-writing SQL against fct_orders.",
+    "userPrompt": "Finance wants total revenue by month, broken out by customer segment, for the trailing 12 months. Make sure it matches the metric the exec dashboard uses.",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Finance wants total revenue by month, broken out by customer segment, for the trailing 12 months. Make sure it matches the metric the exec dashboard uses."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "\"Total revenue\" is business jargon, so before assuming a column I'll resolve it to a canonical metric and confirm a governed definition exists rather than aggregating fct_orders myself."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__context",
+        "toolArgs": "{\"query\": \"total revenue\", \"resolve\": \"metric\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"resolved\":[{\"phrase\":\"total revenue\",\"canonical\":\"total_revenue\",\"kind\":\"metric\",\"linked_model\":\"fct_orders\"}],\"synonyms\":[\"revenue\",\"gross revenue\",\"sales\"]}",
+        "body": "Resolved to the governed metric total_revenue, defined on fct_orders."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Now describe the metric to confirm it supports a monthly grain and a customer-segment dimension before I attempt the slice."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__metrics",
+        "toolArgs": "{\"action\": \"describe\", \"metric\": \"total_revenue\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"metric\":\"total_revenue\",\"type\":\"simple\",\"measure\":{\"name\":\"revenue_amount\",\"agg\":\"sum\",\"expr\":\"order_total\"},\"base_model\":\"fct_orders\",\"time_dimension\":\"metric_time\",\"supported_grains\":[\"day\",\"week\",\"month\",\"quarter\",\"year\"],\"dimensions\":[\"customer__segment\",\"customer__region\",\"order__channel\"]}",
+        "body": "month is supported and customer__segment is a valid dimension."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Both the grain and the dimension are legal on paper. I'll dry-run the exact grouping the stakeholder wants so I get the compiled MetricFlow SQL and confirm validity without spending warehouse compute."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__metrics",
+        "toolArgs": "{\"action\": \"dry-run\", \"metric\": \"total_revenue\", \"group_by\": [\"metric_time\", \"customer__segment\"], \"time_grain\": \"month\", \"where\": \"metric_time >= dateadd('month', -12, current_date)\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"valid\":true,\"rejected_dimensions\":[],\"time_grain\":\"month\",\"compiled_sql_preview\":\"SELECT DATE_TRUNC('month', metric_time) AS metric_time__month, customer__segment, SUM(order_total) AS total_revenue FROM fct_orders ... GROUP BY 1, 2\"}",
+        "body": "Validation passed; no rejected dimensions. Compiled SQL uses the metric's own SUM(order_total) logic."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Dry-run is clean, so the slice is governed and safe. Running it through MetricFlow now."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__metrics",
+        "toolArgs": "{\"action\": \"run\", \"metric\": \"total_revenue\", \"group_by\": [\"metric_time\", \"customer__segment\"], \"time_grain\": \"month\", \"where\": \"metric_time >= dateadd('month', -12, current_date)\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"rows\":36,\"sample\":[{\"metric_time__month\":\"2025-06-01\",\"customer__segment\":\"Enterprise\",\"total_revenue\":1842300.00},{\"metric_time__month\":\"2025-06-01\",\"customer__segment\":\"Mid-Market\",\"total_revenue\":904150.00},{\"metric_time__month\":\"2025-06-01\",\"customer__segment\":\"SMB\",\"total_revenue\":331200.00}],\"engine\":\"metricflow\"}",
+        "body": "36 rows returned (12 months x 3 segments)."
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Returned total_revenue by month by customer segment for the trailing 12 months, 36 rows (12 months x Enterprise/Mid-Market/SMB). These numbers come from the governed total_revenue metric (SUM(order_total) on fct_orders) via MetricFlow, the exact same definition the exec dashboard consumes, so they will reconcile to the penny rather than drifting like a hand-written GROUP BY would. The dry-run confirmed customer__segment and a month grain are valid groupings before any compute was spent. Ready to drop into the Finance slide."
+      }
+    ]
+  },
+  "seNotes": [
+    "The dry-run step is the strongest governance moment in the demo: it returns compiled MetricFlow SQL and rejects invalid dimensions or grains before any warehouse compute is spent, so you can show governance catching a bad slice rather than returning wrong numbers.",
+    "Lead with the drift contrast. A general coding agent improvises a GROUP BY against fct_orders; dbt Wizard returns the same definition the dashboard uses, so the numbers reconcile. That reconciliation is the whole pitch.",
+    "Pair mcp__dbt_index__metrics with mcp__dbt_index__context for jargon-heavy questions. \"ARR\" or \"annual revenue\" resolves to the canonical metric name first, so the run targets a real governed metric instead of a guessed aggregation.",
+    "Use action=describe live to show the metric's supported grains and valid dimensions up front. It frames why a requested slice is or is not allowed before you run it, which lands the governance story.",
+    "Be precise that this queries existing MetricFlow metric definitions; it is not authoring new semantic models on the fly. The value is governed, dashboard-consistent results from the metrics already defined in the project."
+  ],
+  "order": 6
+}

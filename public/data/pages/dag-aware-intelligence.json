@@ -1,0 +1,250 @@
+{
+  "slug": "dag-aware-intelligence",
+  "title": "DAG-Aware Intelligence",
+  "tagline": "Severity-rated blast radius, lineage traversal, critical-path timings",
+  "summary": "dbt Wizard reasons over a live, queryable DAG graph (models, columns, tests, edges) backed by a local DuckDB index, not by reading files. Impact reports trace column- and node-level blast radius through the DAG with critical/high/medium/low severity ratings; lineage traversal walks upstream/downstream with hop-depth control, edge-type filtering, and subgraph scoping; and bottleneck analysis surfaces critical-path nodes from real run timings and OpenTelemetry traces. The headline workflow: ask what breaks if a column is dropped or renamed, and the wizard returns a severity-rated list of downstream consumers plus the exact lineage path connecting them.",
+  "whyDifferent": "A general AI coding agent answers \"what references brand_name\" with grep: a flat list of files containing that string, no ordering, no understanding of whether a match is a passthrough alias or a load-bearing join key. dbt Wizard answers \"what breaks if I drop brand_name\" by traversing the actual compiled DAG and warehouse catalog, returning each affected node with a severity rating and the lineage path that explains why. Grep cannot tell you that a fct_orders test will fail or that a downstream MetricFlow metric loses its dimension; the DAG index can. Severity comes from edge type, test coverage, and grain, not from text frequency.",
+  "tools": [
+    {
+      "name": "mcp__dbt_index__impact",
+      "signature": "mcp__dbt_index__impact(node, column?, change_type?, max_depth?, scope?)",
+      "purpose": "Compute DAG-aware blast radius for a node or specific column, classifying every downstream consumer with a critical/high/medium/low severity rating derived from edge type, test coverage, grain dependency, and materialization.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Target model/source whose change is being assessed, e.g. stg_products."
+        },
+        {
+          "name": "column",
+          "type": "string",
+          "desc": "Optional column to scope blast radius to a single field, e.g. brand_name. Omit for whole-node impact."
+        },
+        {
+          "name": "change_type",
+          "type": "string",
+          "desc": "Optional: drop | rename | type_change | logic_change. Tunes severity heuristics."
+        },
+        {
+          "name": "max_depth",
+          "type": "int",
+          "desc": "Optional hop limit on downstream traversal. Defaults to full transitive closure."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "desc": "Optional subgraph restriction, e.g. a layer (silver, gold) or tag selector."
+        }
+      ],
+      "returns": "Ordered list of affected nodes with severity (critical/high/medium/low), the dependency reason (join key, filter, passthrough, test input, metric dimension), affected tests, and a per-node hop distance. Includes a rollup count by severity tier."
+    },
+    {
+      "name": "mcp__dbt_index__lineage",
+      "signature": "mcp__dbt_index__lineage(node, column?, direction?, max_depth?, edge_types?, scope?)",
+      "purpose": "Traverse the DAG upstream and/or downstream from a node or column, returning the ordered path of nodes and edges so an SE can see exactly how a change propagates.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Starting node for traversal, e.g. fct_orders."
+        },
+        {
+          "name": "column",
+          "type": "string",
+          "desc": "Optional column-level lineage, e.g. trace brand_name field through the graph."
+        },
+        {
+          "name": "direction",
+          "type": "string",
+          "desc": "upstream | downstream | both. Defaults to both."
+        },
+        {
+          "name": "max_depth",
+          "type": "int",
+          "desc": "Hop-depth control; caps how many edges out the traversal walks."
+        },
+        {
+          "name": "edge_types",
+          "type": "string[]",
+          "desc": "Optional edge-type filter: ref, source, test, metric. Restricts which dependency kinds are followed."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "desc": "Optional subgraph scoping to a layer or tag selector."
+        }
+      ],
+      "returns": "Ordered node/edge path with hop distances and edge types, plus the resolved subgraph. Column-level mode returns the field-to-field transformation chain."
+    },
+    {
+      "name": "mcp__dbt_index__timings",
+      "signature": "mcp__dbt_index__timings(scope?, sort?, limit?, critical_path?)",
+      "purpose": "Report build performance from the last run: slowest nodes, critical-path bottlenecks, and OpenTelemetry trace data so SEs can find what is actually gating the pipeline.",
+      "params": [
+        {
+          "name": "scope",
+          "type": "string",
+          "desc": "Optional subgraph/layer/tag restriction for the timing report."
+        },
+        {
+          "name": "sort",
+          "type": "string",
+          "desc": "Optional: duration | self_time | queue_time. Defaults to duration."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "desc": "Optional cap on number of nodes returned."
+        },
+        {
+          "name": "critical_path",
+          "type": "bool",
+          "desc": "When true, returns only nodes on the longest dependency path gating total build time."
+        }
+      ],
+      "returns": "Ranked nodes with execution durations, self vs. wall time, queue time, and a flag for critical-path membership. Includes OpenTelemetry span references for the slowest nodes."
+    }
+  ],
+  "capabilities": [
+    {
+      "title": "Column-level blast radius with severity",
+      "detail": "mcp__dbt_index__impact scoped to a single column (e.g. stg_products.brand_name) returns every downstream consumer rated critical/high/medium/low. Severity reflects how the column is used: a join key or test input ranks higher than a cosmetic passthrough alias."
+    },
+    {
+      "title": "Severity from structure, not text frequency",
+      "detail": "Ratings derive from edge type, test coverage, grain dependency, and materialization in the DAG and warehouse catalog. A column referenced once as a primary join key outranks a column mentioned ten times in comments or unused select lists."
+    },
+    {
+      "title": "Depth-controlled lineage traversal",
+      "detail": "mcp__dbt_index__lineage walks upstream or downstream with a max_depth hop cap, so an SE can ask for one hop (direct dependents) or full transitive closure. Direction is upstream, downstream, or both."
+    },
+    {
+      "title": "Edge-type filtering and subgraph scoping",
+      "detail": "Lineage can follow only ref edges, or include test and metric edges, and can be restricted to a layer (silver, gold) or tag selector. This isolates the propagation path that actually matters for a given question."
+    },
+    {
+      "title": "Critical-path bottleneck analysis",
+      "detail": "mcp__dbt_index__timings identifies the slowest nodes and the critical-path nodes gating total build time, backed by real last-run durations and OpenTelemetry trace spans, not estimates."
+    },
+    {
+      "title": "Impact plus lineage in one answer",
+      "detail": "The headline workflow pairs impact (what breaks, how badly) with lineage (the exact path connecting target to consumer), so the SE sees both the severity-ranked consumer list and the structural reason behind each rating."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "What breaks if I drop brand_name from stg_products?",
+      "intent": "Column-level blast radius for a destructive change, with severity ranking and downstream consumers.",
+      "invokes": [
+        "mcp__dbt_index__impact",
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Show me everything downstream of fct_orders, but only two hops out.",
+      "intent": "Depth-limited downstream lineage traversal.",
+      "invokes": [
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "If I rename order_id in int_orders_enriched, what's the blast radius and which tests fail?",
+      "intent": "Rename impact with test-failure surfacing across the DAG.",
+      "invokes": [
+        "mcp__dbt_index__impact"
+      ]
+    },
+    {
+      "prompt": "Trace the lineage of brand_name from source through to the gold layer.",
+      "intent": "Column-level field-to-field lineage scoped across layers.",
+      "invokes": [
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "What are the slowest nodes on the critical path of last night's build?",
+      "intent": "Critical-path bottleneck analysis from run timings.",
+      "invokes": [
+        "mcp__dbt_index__timings"
+      ]
+    },
+    {
+      "prompt": "Only follow ref edges upstream from dim_customers, skip tests and metrics.",
+      "intent": "Edge-type-filtered upstream lineage.",
+      "invokes": [
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Give me the critical/high impact of a type change on amount in fct_orders, then show the path to each affected metric.",
+      "intent": "Type-change impact filtered to high severity, followed by lineage to metric consumers.",
+      "invokes": [
+        "mcp__dbt_index__impact",
+        "mcp__dbt_index__lineage"
+      ]
+    }
+  ],
+  "interaction": {
+    "scenario": "An SE on a customer call is asked the classic refactor question: a staging model has a column the team wants to remove, and they need to know what will break before touching it. The SE types the question into dbt Wizard live.",
+    "userPrompt": "We want to drop brand_name from stg_products. What breaks, and how bad is it?",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "We want to drop brand_name from stg_products. What breaks, and how bad is it?"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "This is a destructive column change. I'll run a column-scoped impact report against the DAG to get severity-rated downstream consumers, rather than just listing files that mention the string."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__impact",
+        "toolArgs": "{\"node\": \"stg_products\", \"column\": \"brand_name\", \"change_type\": \"drop\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"target\": \"stg_products.brand_name\", \"rollup\": {\"critical\": 1, \"high\": 1, \"medium\": 1, \"low\": 2}, \"affected\": [{\"node\": \"int_orders_enriched\", \"severity\": \"critical\", \"reason\": \"join key + not_null test input\", \"hop\": 1, \"tests\": [\"not_null_int_orders_enriched_brand_name\"]}, {\"node\": \"fct_orders\", \"severity\": \"high\", \"reason\": \"grain-carrying passthrough used by metric\", \"hop\": 2, \"tests\": []}, {\"node\": \"metric:orders_by_brand\", \"severity\": \"medium\", \"reason\": \"MetricFlow dimension\", \"hop\": 3, \"tests\": []}, {\"node\": \"dim_products\", \"severity\": \"low\", \"reason\": \"cosmetic alias passthrough\", \"hop\": 1, \"tests\": []}, {\"node\": \"rpt_brand_summary\", \"severity\": \"low\", \"reason\": \"unused select-list column\", \"hop\": 4, \"tests\": []}]}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "One critical hit: int_orders_enriched uses brand_name as a join key and has a not_null test on it, so dropping the column breaks the build and the test. Let me pull the exact lineage path to that critical consumer and the downstream metric so I can show how it propagates."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__lineage",
+        "toolArgs": "{\"node\": \"stg_products\", \"column\": \"brand_name\", \"direction\": \"downstream\", \"max_depth\": 3, \"edge_types\": [\"ref\", \"test\", \"metric\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"path\": [{\"from\": \"stg_products\", \"to\": \"int_orders_enriched\", \"edge\": \"ref\", \"hop\": 1}, {\"from\": \"int_orders_enriched\", \"to\": \"not_null_int_orders_enriched_brand_name\", \"edge\": \"test\", \"hop\": 1}, {\"from\": \"int_orders_enriched\", \"to\": \"fct_orders\", \"edge\": \"ref\", \"hop\": 2}, {\"from\": \"fct_orders\", \"to\": \"metric:orders_by_brand\", \"edge\": \"metric\", \"hop\": 3}]}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Confirmed: the propagation chain is stg_products -> int_orders_enriched (join + test) -> fct_orders -> orders_by_brand metric. The low-severity nodes (dim_products alias, rpt_brand_summary unused column) would compile fine after a trivial edit. I'll synthesize."
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Dropping stg_products.brand_name has a 1 critical / 1 high / 1 medium / 2 low blast radius.\n\nCRITICAL - int_orders_enriched (1 hop): brand_name is a join key here and has a not_null test (not_null_int_orders_enriched_brand_name). Dropping it breaks the build and fails the test. This is the one you must fix first.\n\nHIGH - fct_orders (2 hops): carries brand_name as a grain passthrough that feeds a metric. Compiles only after int_orders_enriched is fixed.\n\nMEDIUM - orders_by_brand (3 hops): a MetricFlow dimension that disappears, breaking any dashboard sliced by brand.\n\nLOW - dim_products and rpt_brand_summary: a cosmetic alias and an unused select-list column; trivial to clean up.\n\nPropagation path: stg_products -> int_orders_enriched (ref + test) -> fct_orders (ref) -> orders_by_brand (metric). Recommended order: repoint or rename the int_orders_enriched join and drop its test, then fct_orders, then the metric definition. Note grep would have shown all five as equal 'references' and missed the test failure and the lost metric dimension entirely."
+      }
+    ]
+  },
+  "seNotes": [
+    "Lead with the grep contrast. The demo lands when the audience sees that impact returns severity plus a reason (join key, test input, metric dimension) while grep returns an undifferentiated file list. Say it out loud: 'grep counts mentions; impact understands consequences.'",
+    "Severity comes from DAG structure and the warehouse catalog, not text frequency. A column referenced once as a join key outranks one mentioned ten times in comments. Be ready to explain the inputs: edge type, test coverage, grain, materialization.",
+    "Pair impact with lineage in the same answer. Impact says what breaks and how badly; lineage shows the exact path. Showing both is what makes the answer trustworthy to a skeptical data engineer.",
+    "Show edge-type filtering and max_depth live. Toggling edge_types to include test and metric edges, or capping max_depth to one hop for 'just direct dependents,' demonstrates this is graph traversal, not a flat search.",
+    "timings is backed by real last-run durations and OpenTelemetry spans, not estimates. If asked about cost or performance, pivot to critical_path mode to show the nodes actually gating total build time rather than just the slowest in isolation."
+  ],
+  "order": 2
+}

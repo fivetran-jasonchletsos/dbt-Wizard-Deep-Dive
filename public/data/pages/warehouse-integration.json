@@ -1,0 +1,246 @@
+{
+  "slug": "warehouse-integration",
+  "title": "Warehouse Integration",
+  "tagline": "Live read-only warehouse previews and dev-vs-prod diffs",
+  "summary": "dbt Wizard runs read-only SQL directly against the connected warehouse (Snowflake, BigQuery, and others) so an SE can preview model output and sanity-check row counts or suspicious values without a full dbt run. dbt_show resolves Jinja end to end, including ref(), source(), and macros, and executes the compiled SQL on the warehouse to show what a model would actually return. diff compares local or deferred dev state against production state so a change can be validated for row-count and value drift before the PR merges.",
+  "whyDifferent": "A general AI coding agent can only read the .sql file and the YAML config; it never sees a single row of data, cannot resolve a ref() chain into runnable SQL, and has no idea whether a model currently passes or what it returns. dbt Wizard executes against the live warehouse, so it answers from real rows: actual counts, actual distinct brand_name values, actual dev-vs-prod deltas. It distinguishes \"the SQL parses\" from \"the SQL returns the right data,\" which file-reading and grep fundamentally cannot do.",
+  "capabilities": [
+    {
+      "title": "Preview without dbt run",
+      "detail": "mcp__dbt_index__warehouse issues read-only SELECTs against the live warehouse for instant row previews, row counts, and value spot-checks. No dbt build or materialization is required, so you inspect data in seconds instead of waiting on a run."
+    },
+    {
+      "title": "Full Jinja resolution on the warehouse",
+      "detail": "mcp__dbt_index__dbt_show compiles {{ ref() }}, {{ source() }}, and custom macros into executable SQL and runs it on the warehouse, returning the exact rows a model would emit. This catches macro and ref-chain bugs that compiled-SQL inspection alone would miss."
+    },
+    {
+      "title": "Dev vs production drift detection",
+      "detail": "mcp__dbt_index__diff compares local or deferred dev state against the production relation, surfacing row-count deltas and changed values. It turns a blind PR merge into an evidence-backed decision."
+    },
+    {
+      "title": "Read-only safety guarantee",
+      "detail": "warehouse queries are read-only by contract, so SEs can demo live data exploration against a customer-like warehouse without any write risk to the target schemas."
+    },
+    {
+      "title": "Deferred-state cost efficiency",
+      "detail": "diff and validation builds support --defer --state, reusing production upstreams instead of rebuilding the whole DAG, so dev validation stays cheap even on large projects."
+    },
+    {
+      "title": "Automatic post-edit validation",
+      "detail": "after any model edit the validation subagent automatically runs SQL checks, dbt run --defer, and a prod-vs-dev comparison via diff, so warehouse-backed verification happens without you asking."
+    }
+  ],
+  "tools": [
+    {
+      "name": "mcp__dbt_index__warehouse",
+      "signature": "mcp__dbt_index__warehouse(sql, row_limit?, timeout_s?)",
+      "purpose": "Execute read-only SQL directly against the connected warehouse for live data previews, row counts, and value spot-checks without running dbt.",
+      "params": [
+        {
+          "name": "sql",
+          "type": "string",
+          "desc": "Read-only SELECT statement to run against the warehouse."
+        },
+        {
+          "name": "row_limit",
+          "type": "int",
+          "desc": "Optional cap on rows returned for fast previews (e.g. 100)."
+        },
+        {
+          "name": "timeout_s",
+          "type": "int",
+          "desc": "Optional query timeout in seconds."
+        }
+      ],
+      "returns": "Result set as columns + rows with row count, plus the warehouse the query ran against. Read-only; rejects DML/DDL."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_show",
+      "signature": "mcp__dbt_index__dbt_show(node, limit?, vars?, inline?)",
+      "purpose": "Resolve a model's full Jinja ({{ ref() }}, {{ source() }}, macros) into executable SQL and run it on the warehouse to return the rows the model would emit.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Model name or selector to compile and preview (e.g. int_orders_enriched)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "desc": "Optional row limit for the preview."
+        },
+        {
+          "name": "vars",
+          "type": "object",
+          "desc": "Optional dbt vars to inject during compilation."
+        },
+        {
+          "name": "inline",
+          "type": "string",
+          "desc": "Optional ad-hoc SQL/Jinja to compile and run instead of a named node."
+        }
+      ],
+      "returns": "Compiled SQL plus the executed result rows from the warehouse, with the resolved ref/source relation names."
+    },
+    {
+      "name": "mcp__dbt_index__diff",
+      "signature": "mcp__dbt_index__diff(node, state?, defer?, keys?, columns?)",
+      "purpose": "Compare local or deferred dev state against production state for a node to surface row-count and value drift before merging a PR.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Model to compare across dev and prod (e.g. fct_orders)."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Path to production manifest/state for deferred comparison."
+        },
+        {
+          "name": "defer",
+          "type": "bool",
+          "desc": "Reuse production upstreams instead of rebuilding the full DAG."
+        },
+        {
+          "name": "keys",
+          "type": "array",
+          "desc": "Primary key column(s) used to align dev and prod rows."
+        },
+        {
+          "name": "columns",
+          "type": "array",
+          "desc": "Optional subset of columns to compare for value drift."
+        }
+      ],
+      "returns": "Row-count delta (added/removed/changed), per-column value differences, and a breaking/non-breaking assessment. Requires dbt Cloud token or deferred state."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "Show me the first 50 rows of int_orders_enriched as it would actually run, with the refs resolved.",
+      "intent": "Preview real model output with full Jinja resolution before building.",
+      "invokes": [
+        "mcp__dbt_index__dbt_show"
+      ]
+    },
+    {
+      "prompt": "How many rows does fct_orders have in prod right now, and how many distinct order_id?",
+      "intent": "Live row-count and uniqueness sanity check against the warehouse.",
+      "invokes": [
+        "mcp__dbt_index__warehouse"
+      ]
+    },
+    {
+      "prompt": "I'm seeing a brand_name of 'UNKNOWN' in the gold layer. Pull the live rows from stg_products where brand_name is null or 'UNKNOWN'.",
+      "intent": "Investigate a suspicious value with a live read-only query.",
+      "invokes": [
+        "mcp__dbt_index__warehouse"
+      ]
+    },
+    {
+      "prompt": "Compare my dev build of dim_customers against production and tell me if anything broke before I open the PR.",
+      "intent": "Dev-vs-prod drift validation for safe PR merge.",
+      "invokes": [
+        "mcp__dbt_index__diff"
+      ]
+    },
+    {
+      "prompt": "Run dbt show on int_orders_enriched after my macro change and confirm the support_ticket_count column actually populates.",
+      "intent": "Verify a macro/ref change produces correct data, not just valid SQL.",
+      "invokes": [
+        "mcp__dbt_index__dbt_show"
+      ]
+    },
+    {
+      "prompt": "My fct_orders change should only add rows, not change existing totals. Diff dev vs prod on order_id and net_revenue and confirm.",
+      "intent": "Confirm an edit is additive (non-breaking) using key and column-scoped diff.",
+      "invokes": [
+        "mcp__dbt_index__diff",
+        "mcp__dbt_index__warehouse"
+      ]
+    }
+  ],
+  "interaction": {
+    "scenario": "An SE has edited int_orders_enriched to enrich it with support ticket data and wants to preview the live output, sanity-check a suspicious null, and confirm the change is additive against prod before opening a PR.",
+    "userPrompt": "I just added support_ticket_count to int_orders_enriched. Preview the real output, check whether any order_id is missing a count, and confirm this only adds a column without changing existing rows before I merge.",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "I just added support_ticket_count to int_orders_enriched. Preview the real output, check whether any order_id is missing a count, and confirm this only adds a column without changing existing rows before I merge."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "I'll resolve the model's Jinja and run it on the warehouse to see real rows, then spot-check the new column for nulls, then diff dev against prod keyed on order_id. Starting with dbt_show so refs and macros are fully resolved."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_show",
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"limit\":20}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"compiled_refs\":{\"ref('stg_orders')\":\"analytics_dev.silver.stg_orders\",\"ref('stg_support_tickets')\":\"analytics_dev.silver.stg_support_tickets\"},\"columns\":[\"order_id\",\"customer_id\",\"order_total\",\"support_ticket_count\"],\"rows_returned\":20,\"sample\":[{\"order_id\":\"ORD-1001\",\"customer_id\":\"C-22\",\"order_total\":149.00,\"support_ticket_count\":2},{\"order_id\":\"ORD-1002\",\"customer_id\":\"C-23\",\"order_total\":58.50,\"support_ticket_count\":null}]}",
+        "body": "dbt_show resolved both refs and executed on the warehouse. The new support_ticket_count column populates, but ORD-1002 came back null."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "A null on support_ticket_count means the join to stg_support_tickets isn't producing 0 for orders with no tickets. Let me quantify how many order_ids are affected with a live read-only query."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__warehouse",
+        "toolArgs": "{\"sql\":\"select count(*) as null_count from (select order_id, support_ticket_count from analytics_dev.silver.int_orders_enriched) where support_ticket_count is null\",\"row_limit\":1}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"warehouse\":\"snowflake\",\"columns\":[\"null_count\"],\"rows\":[{\"null_count\":3174}]}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "3,174 orders have a null instead of 0. That's a left-join that should coalesce to 0. This is a data-correctness issue, not a syntax one, so it would never surface from reading the file. Now I'll diff dev vs prod keyed on order_id to confirm the rest of the change is additive."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__diff",
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"defer\":true,\"state\":\"prod-artifacts/\",\"keys\":[\"order_id\"],\"columns\":[\"order_id\",\"customer_id\",\"order_total\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"rows_dev\":48210,\"rows_prod\":48210,\"added\":0,\"removed\":0,\"changed\":0,\"new_columns\":[\"support_ticket_count\"],\"assessment\":\"non-breaking on existing columns; one added column\"}"
+      },
+      {
+        "kind": "narration",
+        "agent": "verification",
+        "body": "Validation subagent confirms: row count identical (48,210), zero changed/added/removed rows on order_id, customer_id, and order_total. The only structural change is the added support_ticket_count column."
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Live results: the change is additive in shape, dev and prod both have 48,210 rows with zero changes to order_id, customer_id, or order_total, and the only new column is support_ticket_count. But there is a real data bug: 3,174 orders have support_ticket_count = null instead of 0, because the left join to stg_support_tickets isn't coalescing. Wrap the count in coalesce(..., 0) before you merge. Once fixed, re-run dbt_show to confirm ORD-1002 returns 0 and you're safe to open the PR."
+      }
+    ]
+  },
+  "seNotes": [
+    "Lead the demo with the file-vs-warehouse contrast: a general coding agent says 'the SQL looks fine,' dbt Wizard says '3,174 rows are null in the actual warehouse.' That gap is the whole pitch.",
+    "dbt_show is not dbt compile: it resolves Jinja AND executes on the warehouse, so it catches macro/ref bugs that produce valid-but-wrong SQL. Call that out explicitly.",
+    "diff needs a dbt Cloud token or deferred state (--defer --state); have a prod manifest staged before you demo or the prod side won't resolve.",
+    "Stress that warehouse queries are read-only by contract. This is what lets you run live exploration against a customer-like warehouse with no write risk.",
+    "Emphasize deferred state for cost: diff and validation reuse prod upstreams instead of rebuilding the DAG, which matters on large Snowflake/BigQuery projects where a full rebuild is expensive.",
+    "The validation subagent runs the prod-vs-dev comparison automatically after an edit, so the safe-merge story isn't a manual step the SE has to remember."
+  ],
+  "order": 4
+}
