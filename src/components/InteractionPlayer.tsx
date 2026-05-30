@@ -151,7 +151,7 @@ function EventRow({
             <div className="text-sm font-semibold mb-1" style={{ color: 'var(--dbt)' }}>
               dbt Wizard
             </div>
-            <div className="chat-bubble text-sm whitespace-pre-wrap" style={{ color: 'var(--text)' }}>
+            <div className="chat-bubble text-sm whitespace-pre-wrap" style={{ color: 'var(--text)', maxWidth: '68ch' }}>
               {text ?? ''}
               {cursor}
             </div>

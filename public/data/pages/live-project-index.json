@@ -257,5 +257,36 @@
     "search has two modes worth showing back to back: BM25 over metadata for concept discovery ('find refunds'), then regex against compiled SQL for surgical column-usage hunts ('where is brand_name actually referenced'). Both attach DAG context to every hit automatically.",
     "changeset is epoch-based, diffing since since_epoch — frame it as 'what moved since my last build,' including test status flips, not a git diff of files. Add with_impact to attach blast radius to each change.",
     "Reinforce that none of this is file reading or grep: it's structured MCP calls (mcp__dbt_index__*) against a local DuckDB index, so results are typed, deterministic, and chainable into impact/lineage/warehouse follow-ups. A natural status -> search -> describe sequence is the cleanest onboarding narrative for the index."
+  ],
+  "charts": [
+    {
+      "kind": "bars",
+      "title": "What the live index holds",
+      "unit": "nodes indexed (illustrative)",
+      "note": "A status call returns the project shape straight from the local DuckDB index, reflecting the last run.",
+      "data": [
+        {
+          "label": "models",
+          "value": 87
+        },
+        {
+          "label": "tests",
+          "value": 280,
+          "color": "var(--teal)"
+        },
+        {
+          "label": "sources",
+          "value": 14
+        },
+        {
+          "label": "seeds",
+          "value": 6
+        },
+        {
+          "label": "metrics",
+          "value": 9
+        }
+      ]
+    }
   ]
 }

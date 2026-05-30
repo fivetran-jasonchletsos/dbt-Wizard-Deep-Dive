@@ -107,7 +107,15 @@ function BarChart({
   );
 }
 
-function CompareBars({ items }: { items: CompareItem[] }) {
+function CompareBars({
+  items,
+  legendA = 'Without dbt Wizard',
+  legendB = 'With dbt Wizard',
+}: {
+  items: CompareItem[];
+  legendA?: string;
+  legendB?: string;
+}) {
   const { ref, shown } = useReveal<HTMLDivElement>();
   const max = Math.max(...items.flatMap((it) => [it.before, it.after]), 1);
   return (
@@ -115,11 +123,11 @@ function CompareBars({ items }: { items: CompareItem[] }) {
       <div className="flex items-center gap-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
         <span className="inline-flex items-center gap-1.5">
           <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--text-dim)', display: 'inline-block' }} />
-          Without dbt Wizard
+          {legendA}
         </span>
         <span className="inline-flex items-center gap-1.5">
           <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--dbt)', display: 'inline-block' }} />
-          With dbt Wizard
+          {legendB}
         </span>
       </div>
       {items.map((it, i) => (
@@ -192,7 +200,7 @@ export function Chart({ spec }: { spec: ChartSpec }) {
   return (
     <ChartFrame title={spec.title} note={spec.note}>
       {spec.kind === 'compare' && spec.items ? (
-        <CompareBars items={spec.items} />
+        <CompareBars items={spec.items} legendA={spec.legendA} legendB={spec.legendB} />
       ) : spec.data ? (
         <BarChart data={spec.data} unit={spec.unit} />
       ) : null}

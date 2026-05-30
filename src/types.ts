@@ -65,6 +65,8 @@ export interface ChartSpec {
   unit?: string;
   data?: ChartDatum[];
   items?: CompareItem[];
+  legendA?: string;
+  legendB?: string;
 }
 
 export interface PageContent {

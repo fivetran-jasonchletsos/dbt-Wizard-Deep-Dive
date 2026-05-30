@@ -8,6 +8,7 @@ import Charts from '../components/Charts'
 import HolFlowMap from '../components/HolFlowMap'
 import LineageGraph from '../components/LineageGraph'
 import AgentOrchestration from '../components/AgentOrchestration'
+import ToolGalaxy from '../components/ToolGalaxy'
 
 function groupLabelFor(slug: string): string {
   for (const group of NAV) {
@@ -93,6 +94,7 @@ export default function FunctionalityPage() {
       {slug === 'hol-functionality-map' && <HolFlowMap />}
       {slug === 'dag-aware-intelligence' && <LineageGraph />}
       {slug === 'agent-architecture' && <AgentOrchestration />}
+      {slug === 'mcp-tool-reference' && <ToolGalaxy />}
 
       <section
         className="panel p-6"

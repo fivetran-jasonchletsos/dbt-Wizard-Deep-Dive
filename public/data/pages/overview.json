@@ -280,5 +280,42 @@
     "Frame dbt Wizard as a Fivetran capability that elevates the whole pipeline — move plus transform plus data quality, alongside Fivetran's stewardship of Great Expectations — not a standalone dbt add-on. Fivetran builds the agent; dbt Labs owns dbt, the DAG, MetricFlow, and tests.",
     "Confirm the exact supported-warehouse list for the release you are demoing rather than asserting 'and others'. Name only the warehouses verified for that release (e.g. Snowflake, BigQuery) and check current docs before claiming coverage.",
     "Provenance: every functional detail on this page is sourced from dbt Wizard's own description of its capabilities. Treat that as the reference of record; do not contradict it or invent capabilities beyond it, and check current docs before extending any claim."
+  ],
+  "charts": [
+    {
+      "kind": "compare",
+      "title": "Effort before and after dbt Wizard",
+      "note": "Relative effort, illustrative. Magnitudes from dbt Wizard’s own business-value framing.",
+      "items": [
+        {
+          "label": "Onboard into a new project",
+          "before": 100,
+          "after": 6,
+          "beforeLabel": "1–2 weeks",
+          "afterLabel": "one session"
+        },
+        {
+          "label": "Trace a change’s blast radius",
+          "before": 85,
+          "after": 3,
+          "beforeLabel": "30–60 min",
+          "afterLabel": "seconds"
+        },
+        {
+          "label": "Discover where a source lands",
+          "before": 80,
+          "after": 5,
+          "beforeLabel": "hours",
+          "afterLabel": "minutes"
+        },
+        {
+          "label": "Answer a recurring question",
+          "before": 100,
+          "after": 10,
+          "beforeLabel": "one-off query",
+          "afterLabel": "reusable model"
+        }
+      ]
+    }
   ]
 }

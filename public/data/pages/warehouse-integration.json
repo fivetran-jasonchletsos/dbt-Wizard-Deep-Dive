@@ -241,5 +241,37 @@
       ],
       "returns": "Row-count delta (added/removed/changed), per-column value differences, and a breaking/non-breaking assessment. Resolves the prod side via dbt Cloud OR deferred state (--defer --state) pointed at a production manifest; both are valid."
     }
+  ],
+  "charts": [
+    {
+      "kind": "compare",
+      "title": "diff: dev vs production row counts",
+      "legendA": "production",
+      "legendB": "dev (deferred state)",
+      "note": "diff compares local against production using deferred state (--defer --state) or dbt Cloud. Illustrative counts.",
+      "items": [
+        {
+          "label": "fct_orders",
+          "before": 812400,
+          "after": 812400,
+          "beforeLabel": "812,400",
+          "afterLabel": "812,400"
+        },
+        {
+          "label": "int_orders_enriched",
+          "before": 498120,
+          "after": 498120,
+          "beforeLabel": "498,120",
+          "afterLabel": "498,120"
+        },
+        {
+          "label": "orders_by_week (new)",
+          "before": 0,
+          "after": 312,
+          "beforeLabel": "absent",
+          "afterLabel": "312"
+        }
+      ]
+    }
   ]
 }

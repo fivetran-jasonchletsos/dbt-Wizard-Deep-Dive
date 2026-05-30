@@ -252,5 +252,35 @@
     "Be precise about MetricFlow filter syntax: the where argument uses the filter template form, e.g. {{ TimeDimension('metric_time','month') }} or {{ Dimension('customer__segment') }}, not raw SQL column predicates. Express time grain through a grained dimension name in group_by such as metric_time__month rather than a separate grain parameter.",
     "MetricFlow and the dbt Semantic Layer availability depends on the dbt offering and version in use. Confirm the prerequisites on the customer's project (semantic models and metrics defined, a compatible dbt version) before promising live metric queries.",
     "Fivetran positioning: Fivetran lands and keeps the source tables fresh so fct_orders and the customer model feeding these semantic models reflect current data, which is what makes a governed metric reconcile to the live dashboard rather than to a stale extract."
+  ],
+  "charts": [
+    {
+      "kind": "bars",
+      "title": "Metric result: revenue by customer segment",
+      "unit": "revenue, $K (illustrative)",
+      "note": "Returned by a metrics run against MetricFlow, so every consumer of this metric reconciles to the same governed definition.",
+      "data": [
+        {
+          "label": "VIP",
+          "value": 1840,
+          "color": "var(--dbt)"
+        },
+        {
+          "label": "Returning",
+          "value": 1220,
+          "color": "var(--dbt)"
+        },
+        {
+          "label": "New",
+          "value": 540,
+          "color": "var(--dbt)"
+        },
+        {
+          "label": "Dormant",
+          "value": 180,
+          "color": "var(--text-soft)"
+        }
+      ]
+    }
   ]
 }

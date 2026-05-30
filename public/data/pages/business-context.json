@@ -221,5 +221,30 @@
       ],
       "returns": "A structured node profile: grain, PK, materialization, schema, columns with types, test results, and lineage edges."
     }
+  ],
+  "charts": [
+    {
+      "kind": "bars",
+      "title": "Coverage gaps context surfaces",
+      "unit": "models missing docs or tests (illustrative)",
+      "note": "dbt Wizard surfaces doc and test coverage gaps proactively so they get filled before an incident.",
+      "data": [
+        {
+          "label": "Staging",
+          "value": 3,
+          "color": "var(--alert)"
+        },
+        {
+          "label": "Intermediate",
+          "value": 1,
+          "color": "var(--alert)"
+        },
+        {
+          "label": "Marts",
+          "value": 5,
+          "color": "var(--sev-critical)"
+        }
+      ]
+    }
   ]
 }
