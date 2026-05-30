@@ -174,7 +174,7 @@
         "kind": "code",
         "agent": "worker",
         "codeLang": "sql",
-        "code": "with enriched as (\n  select * from {{ ref('stg_orders') }}\n),\ntickets as (\n  select order_id, count(ticket_id) as support_ticket_count\n  from {{ ref('stg_support_tickets') }}\n  group by 1\n)\nselect\n  o.*,\n  coalesce(t.ticket_status, 0) as support_ticket_count\nfrom enriched o\nleft join tickets t on o.order_id = t.order_id"
+        "code": "with enriched as (\n  select * from {{ ref('stg_orders') }}\n),\ntickets as (\n  select order_id, count(ticket_id) as support_ticket_count\n  from {{ ref('stg_support_tickets') }}\n  group by 1\n)\nselect\n  o.*,\n  coalesce(t.support_ticket_count, 0) as support_ticket_count\nfrom enriched o\nleft join tickets t on o.order_id = t.order_id"
       },
       {
         "kind": "tool_call",

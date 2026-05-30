@@ -73,7 +73,7 @@ export default function HomePage() {
         </div>
 
         <Link
-          to="/p/hol-functionality-map"
+          to="/p/scenario-onboarding"
           className="group panel glow-dbt mt-8 p-5 flex items-center justify-between gap-4"
           style={{ borderColor: 'var(--dbt)' }}
         >
@@ -85,8 +85,9 @@ export default function HomePage() {
               Watch dbt Wizard build a model live
             </div>
             <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-              The Hands-On Lab map plays the full build, tool call by tool call, with the
-              validation subagent catching a grain fan-out before it ships.
+              The onboarding scenario walks the orders_by_week mart from a plain-language ask to a
+              compiled, previewed model on dbt_wizard_hol, tool call by tool call. Hit Play to animate
+              the build.
             </div>
           </div>
           <span

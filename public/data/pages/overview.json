@@ -240,8 +240,8 @@
         "kind": "tool_result",
         "agent": "wizard",
         "codeLang": "json",
-        "code": "{\"node\":\"fct_orders\",\"layer\":\"gold\",\"schema\":\"analytics_gold\",\"materialization\":\"incremental\",\"grain\":\"one row per order_id\",\"pk\":[\"order_id\"],\"columns\":[{\"name\":\"order_id\",\"type\":\"varchar\",\"pk\":true},{\"name\":\"customer_id\",\"type\":\"varchar\"},{\"name\":\"order_total\",\"type\":\"number(38,2)\"},{\"name\":\"order_date\",\"type\":\"date\"}],\"tests\":[{\"name\":\"unique_order_id\",\"status\":\"pass\"},{\"name\":\"not_null_order_total\",\"status\":\"fail\",\"failures\":214}],\"parents\":[\"int_orders_enriched\",\"dim_customers\"],\"children\":[\"rpt_revenue_daily\"]}",
-        "body": "Failing test: not_null_order_total, 214 failing rows. Parents: int_orders_enriched, dim_customers. Child: rpt_revenue_daily."
+        "code": "{\"node\":\"fct_orders\",\"layer\":\"gold\",\"schema\":\"analytics_gold\",\"materialization\":\"incremental\",\"grain\":\"one row per order_id\",\"pk\":[\"order_id\"],\"columns\":[{\"name\":\"order_id\",\"type\":\"varchar\",\"pk\":true},{\"name\":\"customer_id\",\"type\":\"varchar\"},{\"name\":\"order_total\",\"type\":\"number(38,2)\"},{\"name\":\"order_date\",\"type\":\"date\"}],\"tests\":[{\"name\":\"unique_order_id\",\"status\":\"pass\"},{\"name\":\"not_null_order_total\",\"status\":\"fail\",\"failures\":126}],\"parents\":[\"int_orders_enriched\",\"dim_customers\"],\"children\":[\"rpt_revenue_daily\"]}",
+        "body": "Failing test: not_null_order_total, 126 failing rows. Parents: int_orders_enriched, dim_customers. Child: rpt_revenue_daily."
       },
       {
         "kind": "narration",

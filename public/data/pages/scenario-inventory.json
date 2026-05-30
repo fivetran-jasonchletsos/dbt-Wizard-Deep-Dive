@@ -99,10 +99,10 @@
       "sub": "dbt_compile + dbt_show, never materialize on tour"
     },
     {
-      "value": "3",
-      "count": 3,
-      "label": "Downstream consumers protected",
-      "sub": "validation impact analysis names them pre-PR"
+      "value": "0",
+      "count": 0,
+      "label": "Downstream consumers broken",
+      "sub": "new leaf node, validated non-breaking pre-PR"
     },
     {
       "value": "read-only",
