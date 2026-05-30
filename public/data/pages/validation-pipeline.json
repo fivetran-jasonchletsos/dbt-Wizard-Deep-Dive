@@ -309,31 +309,6 @@
       "returns": "Per-test pass/fail/warn status with failing row counts and the assertion that failed."
     }
   ],
-  "charts": [
-    {
-      "kind": "bars",
-      "title": "Validation caught a grain fan-out",
-      "unit": "rows in int_orders_enriched (illustrative)",
-      "note": "After the edit, the validation subagent compared prod vs dev row counts and flagged the inflation before merge. The fix pre-aggregates tickets to one row per order.",
-      "data": [
-        {
-          "label": "Expected",
-          "value": 18412,
-          "color": "var(--resolved)"
-        },
-        {
-          "label": "First attempt",
-          "value": 24180,
-          "color": "var(--sev-critical)"
-        },
-        {
-          "label": "After fix",
-          "value": 18412,
-          "color": "var(--resolved)"
-        }
-      ]
-    }
-  ],
   "stats": [
     {
       "value": "automatic",

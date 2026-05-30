@@ -309,11 +309,11 @@
           "afterLabel": "minutes"
         },
         {
-          "label": "Answer a recurring question",
+          "label": "Answer the same question next quarter",
           "before": 100,
-          "after": 10,
-          "beforeLabel": "one-off query",
-          "afterLabel": "reusable model"
+          "after": 8,
+          "beforeLabel": "hours, from scratch",
+          "afterLabel": "seconds to rerun"
         }
       ]
     }

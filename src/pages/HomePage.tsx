@@ -11,7 +11,7 @@ const EFFORT_COLLAPSE: ChartSpec = {
     { label: 'Onboard into a new project', before: 100, after: 6, beforeLabel: '1–2 weeks', afterLabel: 'one session' },
     { label: 'Trace a change’s blast radius', before: 85, after: 3, beforeLabel: '30–60 min', afterLabel: 'seconds' },
     { label: 'Discover where a source lands', before: 80, after: 5, beforeLabel: 'hours', afterLabel: 'minutes' },
-    { label: 'Answer a recurring question', before: 100, after: 10, beforeLabel: 'one-off query', afterLabel: 'reusable model' },
+    { label: 'Answer the same question next quarter', before: 100, after: 8, beforeLabel: 'hours, from scratch', afterLabel: 'seconds to rerun' },
   ],
 };
 
