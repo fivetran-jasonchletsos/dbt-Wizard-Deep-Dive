@@ -199,8 +199,10 @@ function Row({
 export function Chart({ spec }: { spec: ChartSpec }) {
   return (
     <ChartFrame title={spec.title} note={spec.note}>
-      {spec.kind === 'compare' && spec.items ? (
-        <CompareBars items={spec.items} legendA={spec.legendA} legendB={spec.legendB} />
+      {spec.kind === 'compare' ? (
+        spec.items ? (
+          <CompareBars items={spec.items} legendA={spec.legendA} legendB={spec.legendB} />
+        ) : null
       ) : spec.data ? (
         <BarChart data={spec.data} unit={spec.unit} />
       ) : null}

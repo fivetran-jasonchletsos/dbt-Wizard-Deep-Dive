@@ -63,17 +63,20 @@ const funcY = (j: number) => ((j + 0.5) * H) / FUNCS.length;
 const usage: Record<string, number> = {};
 for (const f of FUNCS) usage[f.id] = PROMPTS.filter((p) => p.targets.includes(f.id)).length;
 
+// Edge list is constant (PROMPTS/FUNCS are module data) — compute once, not per render.
+const EDGE_LIST: { p: PromptNode; f: FuncNode; pi: number; fj: number }[] = [];
+PROMPTS.forEach((p, pi) =>
+  FUNCS.forEach((f, fj) => {
+    if (p.targets.includes(f.id)) EDGE_LIST.push({ p, f, pi, fj });
+  }),
+);
+
 export default function HolFlowMap() {
   const [hoverP, setHoverP] = useState<string | null>(null);
   const [hoverF, setHoverF] = useState<string | null>(null);
   const idle = !hoverP && !hoverF;
 
-  const edges: { p: PromptNode; f: FuncNode; pi: number; fj: number }[] = [];
-  PROMPTS.forEach((p, pi) =>
-    FUNCS.forEach((f, fj) => {
-      if (p.targets.includes(f.id)) edges.push({ p, f, pi, fj });
-    }),
-  );
+  const edges = EDGE_LIST;
 
   const edgeState = (p: PromptNode, f: FuncNode) => {
     if (idle) return 'idle';

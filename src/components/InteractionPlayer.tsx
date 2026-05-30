@@ -182,7 +182,7 @@ export default function InteractionPlayer({ interaction }: InteractionPlayerProp
   useEffect(() => {
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
-  }, [mode, cursor, typed]);
+  }, [mode, cursor, typed, events]);
 
   // Play-mode typing / advancing engine.
   useEffect(() => {

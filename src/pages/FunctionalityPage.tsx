@@ -17,6 +17,14 @@ function groupLabelFor(slug: string): string {
   return 'Reference'
 }
 
+// Per-page hero visual, looked up by slug instead of a chain of slug=== checks.
+const HERO_VISUALS = {
+  'hol-functionality-map': HolFlowMap,
+  'dag-aware-intelligence': LineageGraph,
+  'agent-architecture': AgentOrchestration,
+  'mcp-tool-reference': ToolGalaxy,
+}
+
 export default function FunctionalityPage() {
   const { slug = '' } = useParams()
   const [data, setData] = useState<PageContent | null>(null)
@@ -33,6 +41,18 @@ export default function FunctionalityPage() {
       })
       .then((json: PageContent) => {
         if (cancelled) return
+        // Validate the shape at the boundary so a partial/corrupt payload lands
+        // in the error state instead of crashing an unguarded .map() mid-render.
+        if (
+          !json ||
+          !Array.isArray(json.capabilities) ||
+          !Array.isArray(json.examplePrompts) ||
+          !json.interaction ||
+          !Array.isArray(json.interaction.events) ||
+          !Array.isArray(json.seNotes)
+        ) {
+          throw new Error('malformed page content')
+        }
         setData(json)
         setStatus('ready')
       })
@@ -73,6 +93,7 @@ export default function FunctionalityPage() {
 
   const groupLabel = groupLabelFor(slug)
   const { prev, next } = adjacent(slug)
+  const Hero = HERO_VISUALS[slug as keyof typeof HERO_VISUALS]
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 space-y-12 animate-in">
@@ -91,10 +112,7 @@ export default function FunctionalityPage() {
         </p>
       </header>
 
-      {slug === 'hol-functionality-map' && <HolFlowMap />}
-      {slug === 'dag-aware-intelligence' && <LineageGraph />}
-      {slug === 'agent-architecture' && <AgentOrchestration />}
-      {slug === 'mcp-tool-reference' && <ToolGalaxy />}
+      {Hero ? <Hero /> : null}
 
       <section
         className="panel p-6"

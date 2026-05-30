@@ -19,6 +19,12 @@ const SQL_KEYWORDS = new Set([
   'max', 'min', 'avg', 'coalesce', 'nullif', 'cast', 'over', 'partition',
 ]);
 
+// Hoisted so each pattern compiles once, not per rendered line. The SQL fallback
+// class must NOT exclude '{', or a lone brace (not part of {{ }} / {% %}) matches
+// no group and is silently dropped from the rendered code.
+const SQL_RE = /(\{\{[^]*?\}\}|\{%[^]*?%\})|('(?:[^'\\]|\\.)*')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z0-9_]*)|(\s+)|([^\sA-Za-z0-9_']+)/g;
+const JSON_RE = /("(?:[^"\\]|\\.)*")(\s*:)?|(\b-?\d+(?:\.\d+)?\b)|\b(true|false|null)\b|(\s+)|([^\s"]+)/g;
+
 function esc(s: string): React.ReactNode {
   return s;
 }
@@ -32,7 +38,8 @@ function tokenizeSql(line: string): Span[] {
     body = line.slice(0, commentIdx);
     comment = line.slice(commentIdx);
   }
-  const re = /(\{\{[^]*?\}\}|\{%[^]*?%\})|('(?:[^'\\]|\\.)*')|(\b\d+(?:\.\d+)?\b)|([A-Za-z_][A-Za-z0-9_]*)|(\s+)|([^\sA-Za-z0-9_'{]+)/g;
+  SQL_RE.lastIndex = 0;
+  const re = SQL_RE;
   let m: RegExpExecArray | null;
   while ((m = re.exec(body)) !== null) {
     if (m[1]) spans.push({ text: m[1], cls: 'tok-jinja' });
@@ -78,7 +85,8 @@ function tokenizeYaml(line: string): Span[] {
 
 function tokenizeJson(line: string): Span[] {
   const spans: Span[] = [];
-  const re = /("(?:[^"\\]|\\.)*")(\s*:)?|(\b-?\d+(?:\.\d+)?\b)|\b(true|false|null)\b|(\s+)|([^\s"]+)/g;
+  JSON_RE.lastIndex = 0;
+  const re = JSON_RE;
   let m: RegExpExecArray | null;
   while ((m = re.exec(line)) !== null) {
     if (m[1]) {

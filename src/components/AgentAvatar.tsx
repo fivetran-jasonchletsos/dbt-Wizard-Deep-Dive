@@ -8,7 +8,7 @@ interface AgentAvatarProps {
 }
 
 export default function AgentAvatar({ role, active = false, size = 40 }: AgentAvatarProps) {
-  const meta = AGENT_META[role];
+  const meta = AGENT_META[role] ?? { name: String(role), code: '??', color: 'var(--text-muted)' };
   return (
     <span
       className={'agent-avatar' + (active ? ' active' : '')}

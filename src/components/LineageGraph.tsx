@@ -116,7 +116,7 @@ export default function LineageGraph() {
 
   const down = useMemo(() => downstream(selected), [selected]);
   const up = useMemo(() => upstream(selected), [selected]);
-  const labelOf = (id: string) => NODES.find((n) => n.id === id)!.label;
+  const labelOf = (id: string) => NODES.find((n) => n.id === id)?.label ?? id;
 
   const roleOf = (id: string): { role: 'sel' | 'down' | 'up' | 'none'; sev?: number } => {
     if (id === selected) return { role: 'sel' };
