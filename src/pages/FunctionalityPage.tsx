@@ -4,6 +4,7 @@ import { dataUrl } from '../types'
 import type { PageContent } from '../types'
 import { adjacent, NAV } from '../nav'
 import InteractionPlayer from '../components/InteractionPlayer'
+import Charts from '../components/Charts'
 
 function groupLabelFor(slug: string): string {
   for (const group of NAV) {
@@ -115,6 +116,15 @@ export default function FunctionalityPage() {
           ))}
         </div>
       </section>
+
+      {data.charts && data.charts.length > 0 && (
+        <section className="space-y-4">
+          <div className="eyebrow" style={{ color: 'var(--text-soft)' }}>
+            BY THE NUMBERS
+          </div>
+          <Charts specs={data.charts} />
+        </section>
+      )}
 
       {data.tools && data.tools.length > 0 && (
         <section className="space-y-4">

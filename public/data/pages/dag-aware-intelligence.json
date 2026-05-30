@@ -235,5 +235,35 @@
     "Pair impact with lineage in the same answer. Impact says what breaks and how badly; lineage shows the exact path. Showing both is what makes the answer trustworthy to a skeptical data engineer.",
     "Show edge-type filtering and max_depth live. Toggling edge_types to include test and metric edges, or capping max_depth to one hop for 'just direct dependents,' demonstrates this is graph traversal, not a flat search.",
     "timings reports per-node durations and critical-path data captured from the last run's dbt run results and events into the index, so they are grounded in real execution rather than estimates. If asked about cost or performance, pivot to the critical_path view to show the nodes actually gating total build time rather than just the slowest in isolation."
+  ],
+  "charts": [
+    {
+      "kind": "bars",
+      "title": "Example impact report: blast radius by severity",
+      "note": "Illustrative impact result for dropping a column. Severity is assigned from edge type, test coverage, grain, and materialization, not a raw reference count.",
+      "unit": "downstream nodes",
+      "data": [
+        {
+          "label": "Critical",
+          "value": 2,
+          "color": "var(--sev-critical)"
+        },
+        {
+          "label": "High",
+          "value": 5,
+          "color": "var(--sev-high)"
+        },
+        {
+          "label": "Medium",
+          "value": 9,
+          "color": "var(--sev-medium)"
+        },
+        {
+          "label": "Low",
+          "value": 14,
+          "color": "var(--sev-low)"
+        }
+      ]
+    }
   ]
 }

@@ -44,6 +44,29 @@ export interface Capability {
   detail: string;
 }
 
+export type ChartKind = 'bars' | 'compare';
+export interface ChartDatum {
+  label: string;
+  value: number;
+  display?: string;
+  color?: string;
+}
+export interface CompareItem {
+  label: string;
+  before: number;
+  after: number;
+  beforeLabel?: string;
+  afterLabel?: string;
+}
+export interface ChartSpec {
+  kind: ChartKind;
+  title: string;
+  note?: string;
+  unit?: string;
+  data?: ChartDatum[];
+  items?: CompareItem[];
+}
+
 export interface PageContent {
   slug: string;
   title: string;
@@ -53,6 +76,7 @@ export interface PageContent {
   whyDifferent: string;
   tools?: ToolDoc[];
   capabilities: Capability[];
+  charts?: ChartSpec[];
   examplePrompts: ExamplePrompt[];
   interaction: {
     scenario: string;

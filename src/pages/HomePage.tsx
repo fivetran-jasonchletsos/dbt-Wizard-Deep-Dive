@@ -1,5 +1,19 @@
 import { Link } from 'react-router-dom';
 import { NAV } from '../nav';
+import { Chart } from '../components/Charts';
+import type { ChartSpec } from '../types';
+
+const EFFORT_COLLAPSE: ChartSpec = {
+  kind: 'compare',
+  title: 'Effort before and after dbt Wizard',
+  note: 'Relative effort, illustrative. Magnitudes from dbt Wizard’s own business-value framing.',
+  items: [
+    { label: 'Onboard into a new project', before: 100, after: 6, beforeLabel: '1–2 weeks', afterLabel: 'one session' },
+    { label: 'Trace a change’s blast radius', before: 85, after: 3, beforeLabel: '30–60 min', afterLabel: 'seconds' },
+    { label: 'Discover where a source lands', before: 80, after: 5, beforeLabel: 'hours', afterLabel: 'minutes' },
+    { label: 'Answer a recurring question', before: 100, after: 10, beforeLabel: 'one-off query', afterLabel: 'reusable model' },
+  ],
+};
 
 export default function HomePage() {
   return (
@@ -57,6 +71,36 @@ export default function HomePage() {
           <span className="chip chip-teal">live DuckDB index</span>
           <span className="chip chip-muted">terminal CLI and dbt platform</span>
         </div>
+
+        <Link
+          to="/p/hol-functionality-map"
+          className="group panel glow-dbt mt-8 p-5 flex items-center justify-between gap-4"
+          style={{ borderColor: 'var(--dbt)' }}
+        >
+          <div>
+            <div className="eyebrow" style={{ color: 'var(--dbt)' }}>
+              THE BIG DRAW
+            </div>
+            <div className="font-display text-xl mt-1" style={{ color: 'var(--text)' }}>
+              Watch dbt Wizard build a model live
+            </div>
+            <div className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              The Hands-On Lab map plays the full build, tool call by tool call, with the
+              validation subagent catching a grain fan-out before it ships.
+            </div>
+          </div>
+          <span
+            className="font-mono text-2xl transition-transform group-hover:translate-x-1 shrink-0"
+            style={{ color: 'var(--dbt)' }}
+            aria-hidden="true"
+          >
+            {'->'}
+          </span>
+        </Link>
+      </section>
+
+      <section className="mt-10">
+        <Chart spec={EFFORT_COLLAPSE} />
       </section>
 
       <section className="grid sm:grid-cols-2 lg:grid-cols-2 gap-4 mt-12">

@@ -263,6 +263,17 @@ export default function InteractionPlayer({ interaction }: InteractionPlayerProp
 
   return (
     <div className="panel p-5">
+      <div
+        className="flex items-center gap-2 mb-4 pb-3"
+        style={{ borderBottom: '1px solid var(--line-soft)' }}
+      >
+        <span style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--crisis)' }} />
+        <span style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--alert)' }} />
+        <span style={{ width: 10, height: 10, borderRadius: 999, background: 'var(--resolved)' }} />
+        <span className="font-mono text-xs ml-2" style={{ color: 'var(--text-soft)' }}>
+          dbt-wizard — interactive session
+        </span>
+      </div>
       <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
         <div>
           <div className="eyebrow mb-1" style={{ color: 'var(--dbt)' }}>

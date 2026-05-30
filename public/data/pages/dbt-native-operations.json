@@ -275,5 +275,35 @@
     "Tie it to the validation pipeline: after any edit, the validation subagent automatically reuses these same structured dbt_run --defer and prod-vs-dev calls before merge, so this page's tools are also the engine behind safe PR validation, not a separate manual flow.",
     "Dev-vs-prod here is deferred state only (--defer --state target-prod/ against the production manifest/artifacts); there is no dbt Cloud token or API involved, so this works for any self-hosted or Core project.",
     "Confirm the supported warehouse adapters for the customer's release before promising deferred builds: deferred state and the dbt_* tool calls track the adapters shipped in that release (Snowflake, BigQuery, Databricks, Redshift, Postgres in current builds). Check the release notes for the exact supported set rather than assuming an adapter is covered."
+  ],
+  "charts": [
+    {
+      "kind": "bars",
+      "title": "Build timings: slowest nodes on the critical path",
+      "note": "Illustrative timings output. dbt Wizard surfaces slowest nodes and critical-path bottlenecks from the last run.",
+      "unit": "seconds",
+      "data": [
+        {
+          "label": "fct_orders",
+          "value": 42
+        },
+        {
+          "label": "int_orders_enriched",
+          "value": 28
+        },
+        {
+          "label": "dim_customers",
+          "value": 19
+        },
+        {
+          "label": "stg_orders",
+          "value": 11
+        },
+        {
+          "label": "stg_tickets",
+          "value": 7
+        }
+      ]
+    }
   ]
 }
