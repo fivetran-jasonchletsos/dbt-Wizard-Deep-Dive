@@ -11,6 +11,7 @@ import AgentOrchestration from '../components/AgentOrchestration'
 import ToolGalaxy from '../components/ToolGalaxy'
 import StatBand from '../components/StatBand'
 import ValidationPipeline from '../components/ValidationPipeline'
+import SkillsDisclosure from '../components/SkillsDisclosure'
 
 function groupLabelFor(slug: string): string {
   for (const group of NAV) {
@@ -26,6 +27,7 @@ const HERO_VISUALS = {
   'agent-architecture': AgentOrchestration,
   'mcp-tool-reference': ToolGalaxy,
   'validation-pipeline': ValidationPipeline,
+  'skills-system': SkillsDisclosure,
 }
 
 export default function FunctionalityPage() {

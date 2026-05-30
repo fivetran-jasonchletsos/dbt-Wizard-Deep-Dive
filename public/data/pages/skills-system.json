@@ -179,31 +179,6 @@
     "Skills compose with the rest of the product: a triggered skill still drives mcp__dbt_index__* tools, can spawn explorer/worker/validation/test_writer subagents, and hands off via submit_summary. The skill is the workflow; the tools and subagents are the execution.",
     "On provenance, answer 'can we add our own workflow' with yes: skills ship with the product as plain SKILL.md files plus bundled scripts/, references/, and assets/. They are not opaque or compiled, so the team can author new skills and extend the shipped ones by editing the frontmatter, body, and bundled resources in the same format the installed scenarios use."
   ],
-  "charts": [
-    {
-      "kind": "bars",
-      "title": "Progressive disclosure keeps context lean",
-      "unit": "approx tokens loaded (illustrative)",
-      "note": "Only the ~100-word metadata stays in context until a skill triggers; the body and bundled resources load on demand.",
-      "data": [
-        {
-          "label": "L1 metadata (always)",
-          "value": 130,
-          "color": "var(--resolved)"
-        },
-        {
-          "label": "L2 SKILL.md (on trigger)",
-          "value": 1800,
-          "color": "var(--alert)"
-        },
-        {
-          "label": "L3 resources (on demand)",
-          "value": 6200,
-          "color": "var(--sev-critical)"
-        }
-      ]
-    }
-  ],
   "stats": [
     {
       "count": 3,

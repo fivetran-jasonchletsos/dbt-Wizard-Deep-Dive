@@ -297,36 +297,6 @@
     "Tie it back to the Fivetran story: Fivetran moves the data, dbt transforms it, and dbt Wizard validates the in-warehouse change before it lands. The lab's end state is a versioned, tested dbt asset in the repo, not an answer in a chat window.",
     "All functional detail on this page is sourced from dbt Wizard itself; it reflects dbt Wizard's own description of its capabilities. If pressed on a tool or subagent behavior, defer to that reference rather than improvising beyond it."
   ],
-  "charts": [
-    {
-      "kind": "bars",
-      "title": "dbt Wizard tools triggered per lab prompt",
-      "note": "Count of distinct mcp__dbt_index__* tools each lab prompt invokes.",
-      "unit": "tools invoked",
-      "data": [
-        {
-          "label": "S1.1 Onboard",
-          "value": 4
-        },
-        {
-          "label": "S1.2 Sample",
-          "value": 2
-        },
-        {
-          "label": "S1.3 Build mart",
-          "value": 4
-        },
-        {
-          "label": "S2.1 Joined?",
-          "value": 3
-        },
-        {
-          "label": "S2.2 Extend",
-          "value": 6
-        }
-      ]
-    }
-  ],
   "stats": [
     {
       "count": 5,
