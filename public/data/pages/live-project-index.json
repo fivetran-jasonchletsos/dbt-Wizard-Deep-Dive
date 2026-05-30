@@ -2,12 +2,16 @@
   "slug": "live-project-index",
   "title": "Live Project Index",
   "tagline": "Local DuckDB index of models, columns, tests, edges",
-  "summary": "The Live Project Index is a local DuckDB index of your dbt project's metadata — every model, column, test, and DAG edge — that reflects the actual last-run state, including pass/fail test results, run results, and node timings. It knows grain, primary-key markers, schemas, and materializations out of the box, so dbt Wizard answers structural and state questions by querying the index rather than parsing files. The describe, search, and changeset tools all read from this index, attaching DAG context to every result and computing epoch-based diffs since the last flush.",
-  "whyDifferent": "A general AI coding agent reconstructs project structure every turn by reading .sql and .yml files and grepping for string matches, which yields textual references with no notion of grain, PK markers, materialization, or whether a test currently passes. dbt Wizard instead queries a pre-built DuckDB index that already holds the resolved DAG, column catalog, and last-run state, so a search for a concept returns models with lineage, materialization, and live test status attached. Where grep returns \"these files contain this string,\" the index returns \"this model at this grain, with this PK, these failing tests, and these downstream consumers.\"",
+  "summary": "The Live Project Index is a local DuckDB index of your dbt project's metadata — every model, column, test, and DAG edge — that reflects the actual last-run state, including pass/fail test results, run results, and node timings. It knows grain, primary-key markers, schemas, and materializations out of the box, so dbt Wizard answers structural and state questions by querying the index rather than parsing files. The status, describe, search, and changeset tools all read from this index: status gives the one-call project shape and health summary, while describe, search, and changeset attach DAG context to every result and compute epoch-based diffs since the last flush. Per dbt Wizard's own description of its capabilities, these are structured MCP calls (mcp__dbt_index__*), not file reads.",
+  "whyDifferent": "A general AI coding agent reconstructs project structure every turn by reading .sql and .yml files and grepping for string matches, which yields textual references with no notion of grain, PK markers, materialization, or whether a test currently passes. dbt Wizard instead queries a pre-built DuckDB index that already holds the resolved DAG, column catalog, and last-run state, so a single status call returns node counts, doc and test coverage, and the last-run summary, and a search for a concept returns models with lineage, materialization, and live test status attached. Where grep returns \"these files contain this string,\" the index returns \"this many models at these layers, this model at this grain, with this PK, these failing tests, and these downstream consumers.\"",
   "capabilities": [
     {
+      "title": "One-call project orientation",
+      "detail": "status returns the whole project shape in a single call: node counts by type and layer, documentation and test coverage, and the last-run summary (when it ran, what passed, what failed). It is the fastest first call when landing in an unfamiliar project, before drilling into any specific node."
+    },
+    {
       "title": "Last-run state baked in",
-      "detail": "The index records the actual results of the most recent dbt run/test: per-test pass/fail, row counts, run results, and per-node timings. describe surfaces a model's current test status without re-running anything."
+      "detail": "The index records the actual results of the most recent dbt run/test: per-test pass/fail, row counts, run results, and per-node durations. status rolls this up into a coverage and health summary; describe surfaces a single model's current test status — neither re-runs anything."
     },
     {
       "title": "Grain, PK, schema, materialization out of the box",
@@ -15,26 +19,39 @@
     },
     {
       "title": "Dual-mode search with DAG context",
-      "detail": "search runs either BM25 ranking over model/column metadata and descriptions, or regex against raw or compiled SQL. Either way, every hit comes back with its DAG position (upstream/downstream edges, layer) attached."
+      "detail": "search runs either BM25 ranking over model/column metadata and descriptions, or regex against raw or compiled SQL. Either way, every hit comes back with its DAG position (upstream/downstream edges, layer) attached — DAG context is always included, there is no flag to toggle it."
     },
     {
       "title": "Full node introspection",
-      "detail": "describe returns columns, compiled SQL, catalog data types, test results, and lineage for any node in a single structured call — the equivalent of opening the .sql, the schema.yml, the catalog.json, and run_results.json simultaneously."
+      "detail": "describe returns the parts you ask for via include — columns, compiled SQL, catalog data types, test results, and lineage for any node in a single structured call — the equivalent of opening the .sql, the schema.yml, the catalog.json, and run_results.json simultaneously."
     },
     {
       "title": "Epoch-based changeset diffs",
-      "detail": "changeset reports exactly which nodes, columns, and tests changed since the last index flush, with optional downstream impact, so the SE can see the delta without diffing files by hand."
+      "detail": "changeset reports exactly which nodes, columns, and tests changed since a given epoch (since_epoch), with optional impact attached via with_impact, so the SE can see the delta without diffing files by hand."
     },
     {
       "title": "Structured tool calls, not grep",
-      "detail": "All three tools are MCP calls (mcp__dbt_index__*) backed by the local DuckDB index. Results are typed records, not raw text scrapes, so they are deterministic and machine-consumable for follow-on tools."
+      "detail": "All of these tools are MCP calls (mcp__dbt_index__*) backed by the local DuckDB index. Results are typed records, not raw text scrapes, so they are deterministic and machine-consumable for follow-on tools."
     }
   ],
   "tools": [
     {
+      "name": "mcp__dbt_index__status",
+      "signature": "mcp__dbt_index__status(include?)",
+      "purpose": "Fastest first call for project orientation: returns the project shape from the index — node counts, documentation and test coverage, and the last-run summary — in a single structured call. Use it to size up an unfamiliar project before drilling into any specific node.",
+      "params": [
+        {
+          "name": "include",
+          "type": "string[]",
+          "desc": "Optional facets to expand, e.g. [\"node_counts\",\"coverage\",\"last_run\"]. Defaults to the core project shape and health rollup."
+        }
+      ],
+      "returns": "A structured project summary: node counts by type and layer, documentation coverage, test coverage, and the last-run summary (timestamp, totals, pass/fail counts) — all read from the index, no re-run."
+    },
+    {
       "name": "mcp__dbt_index__describe",
-      "signature": "mcp__dbt_index__describe(node, include_sql?, include_tests?, include_lineage?, include_columns?)",
-      "purpose": "Full node introspection from the index: columns and catalog data types, compiled SQL, current test results, lineage, grain, PK markers, schema, and materialization — all in one structured call, no file reads.",
+      "signature": "mcp__dbt_index__describe(node, include?)",
+      "purpose": "Full node introspection from the index: columns and catalog data types, compiled SQL, current test results, lineage, grain, PK markers, schema, and materialization — selected via include, all in one structured call, no file reads.",
       "params": [
         {
           "name": "node",
@@ -42,32 +59,17 @@
           "desc": "The model/source/seed/snapshot node to introspect, e.g. 'fct_orders' or 'model.shop.int_orders_enriched'."
         },
         {
-          "name": "include_sql",
-          "type": "boolean",
-          "desc": "Include raw and compiled SQL for the node. Default true."
-        },
-        {
-          "name": "include_tests",
-          "type": "boolean",
-          "desc": "Include per-test pass/fail status from the last run. Default true."
-        },
-        {
-          "name": "include_lineage",
-          "type": "boolean",
-          "desc": "Include immediate upstream/downstream edges. Default true."
-        },
-        {
-          "name": "include_columns",
-          "type": "boolean",
-          "desc": "Include the column catalog with data types and PK markers. Default true."
+          "name": "include",
+          "type": "string[]",
+          "desc": "Which facets to return, e.g. [\"columns\",\"compiled_sql\",\"tests\",\"lineage\",\"catalog\"]. Grain, PK markers, schema, and materialization are always returned."
         }
       ],
-      "returns": "A structured node record: grain, PK marker(s), schema, materialization, columns with types, compiled SQL, last-run test results (pass/fail + counts), and immediate lineage edges."
+      "returns": "A structured node record: grain, PK marker(s), schema, materialization, plus whichever of columns (with types and PK markers), compiled SQL, last-run test results (pass/fail + counts), catalog data types, and immediate lineage edges were requested in include."
     },
     {
       "name": "mcp__dbt_index__search",
-      "signature": "mcp__dbt_index__search(query, mode?, target?, layer?, limit?)",
-      "purpose": "Find nodes and columns touching a concept. Runs either BM25 over metadata/descriptions or regex against raw/compiled SQL, returning every hit with its DAG context attached.",
+      "signature": "mcp__dbt_index__search(query, mode?, scope?, limit?)",
+      "purpose": "Find nodes and columns touching a concept. Runs either BM25 over metadata/descriptions or regex against SQL, returning every hit with its DAG context attached. DAG context is always included.",
       "params": [
         {
           "name": "query",
@@ -80,14 +82,9 @@
           "desc": "'bm25' for metadata/description ranking, or 'regex' for pattern matching against SQL. Default 'bm25'."
         },
         {
-          "name": "target",
+          "name": "scope",
           "type": "string",
-          "desc": "For regex mode: 'raw' or 'compiled' SQL. Default 'compiled'."
-        },
-        {
-          "name": "layer",
-          "type": "string",
-          "desc": "Optional layer filter, e.g. 'bronze'/'silver'/'gold' or 'staging'/'intermediate'/'marts'."
+          "desc": "Optional selector to narrow the search, e.g. a layer or tag selector like 'tag:finance' or a path/layer scope."
         },
         {
           "name": "limit",
@@ -99,18 +96,18 @@
     },
     {
       "name": "mcp__dbt_index__changeset",
-      "signature": "mcp__dbt_index__changeset(since?, include_downstream?, node_filter?)",
-      "purpose": "Epoch-based diff of what changed in the index since the last flush — nodes, columns, and tests added/removed/modified — with optional downstream impact attached.",
+      "signature": "mcp__dbt_index__changeset(since_epoch?, with_impact?, node_filter?)",
+      "purpose": "Epoch-based diff of what changed in the index since a given epoch — nodes, columns, and tests added/removed/modified — with optional impact attached.",
       "params": [
         {
-          "name": "since",
-          "type": "string",
-          "desc": "Epoch/flush marker to diff against. Defaults to the last flush."
+          "name": "since_epoch",
+          "type": "integer",
+          "desc": "Epoch (int) to diff against. Defaults to the last flush."
         },
         {
-          "name": "include_downstream",
+          "name": "with_impact",
           "type": "boolean",
-          "desc": "Attach downstream nodes affected by each change. Default false."
+          "desc": "Attach blast-radius impact for each change. Default false."
         },
         {
           "name": "node_filter",
@@ -118,10 +115,17 @@
           "desc": "Optional node or selector to scope the diff, e.g. 'stg_products' or 'tag:finance'."
         }
       ],
-      "returns": "A structured delta: changed nodes, added/dropped/retyped columns, test additions/removals and status flips since the epoch, optionally with downstream impact lists."
+      "returns": "A structured delta: changed nodes, added/dropped/retyped columns, test additions/removals and status flips since the epoch, optionally with impact lists."
     }
   ],
   "examplePrompts": [
+    {
+      "prompt": "I just opened this dbt project. Give me the shape of it — how many models, what's the test and doc coverage, and when did it last run.",
+      "intent": "Fastest first call for project orientation: one status call for node counts, coverage, and last-run summary.",
+      "invokes": [
+        "mcp__dbt_index__status"
+      ]
+    },
     {
       "prompt": "Find every model that touches refunds and tell me the grain and current test status of the most relevant one.",
       "intent": "Locate concept-related models, then introspect the top hit's grain and live test state.",
@@ -145,8 +149,8 @@
       ]
     },
     {
-      "prompt": "Show me everything that changed in the project since my last build, and what's downstream of it.",
-      "intent": "Epoch-based changeset diff with downstream impact.",
+      "prompt": "Show me everything that changed in the project since my last build, and the impact of each change.",
+      "intent": "Epoch-based changeset diff with impact attached.",
       "invokes": [
         "mcp__dbt_index__changeset"
       ]
@@ -175,18 +179,35 @@
     }
   ],
   "interaction": {
-    "scenario": "An SE is exploring an unfamiliar e-commerce dbt project and wants to find all models touching the 'refund' concept, then inspect the grain, tests, and columns of the most relevant one — entirely from the index, with no file parsing.",
-    "userPrompt": "Find all models that deal with refunds, then show me the grain, primary key, columns, and current test status of the most relevant one.",
+    "scenario": "An SE is exploring an unfamiliar e-commerce dbt project. They start with a single status call to size up the project, then find all models touching the 'refund' concept and inspect the grain, tests, and columns of the most relevant one — entirely from the index, with no file parsing.",
+    "userPrompt": "I just inherited this dbt project. Give me the shape of it first, then find all models that deal with refunds and show me the grain, primary key, columns, and current test status of the most relevant one.",
     "events": [
       {
         "kind": "user",
         "agent": "user",
-        "body": "Find all models that deal with refunds, then show me the grain, primary key, columns, and current test status of the most relevant one."
+        "body": "I just inherited this dbt project. Give me the shape of it first, then find all models that deal with refunds and show me the grain, primary key, columns, and current test status of the most relevant one."
       },
       {
         "kind": "narration",
         "agent": "wizard",
-        "body": "I'll query the Live Project Index for nodes touching 'refund' using BM25 over metadata and descriptions, then introspect the top hit. No files are read — this comes from the local DuckDB index."
+        "body": "I'll start with status — the fastest first call for orientation — to get node counts, test and doc coverage, and the last-run summary from the Live Project Index. Then I'll search for 'refund' and introspect the top hit. Everything here comes from the local DuckDB index, not file reads."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__status",
+        "toolArgs": "{\"include\":[\"node_counts\",\"coverage\",\"last_run\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"node_counts\":{\"models\":142,\"sources\":18,\"seeds\":6,\"snapshots\":3,\"tests\":311,\"by_layer\":{\"bronze\":41,\"silver\":63,\"gold\":38}},\"coverage\":{\"doc_coverage\":0.74,\"test_coverage\":0.81,\"models_without_tests\":27},\"last_run\":{\"completed_at\":\"2026-05-29T07:12:04Z\",\"command\":\"dbt build\",\"total\":453,\"pass\":446,\"fail\":3,\"skip\":4}}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "142 models across bronze/silver/gold, 81% test coverage with 27 models untested, and the last dbt build (2026-05-29) had 3 failures. Now I'll locate the refund models with BM25 over metadata and descriptions — DAG context comes back attached to every hit."
       },
       {
         "kind": "tool_call",
@@ -209,7 +230,7 @@
         "kind": "tool_call",
         "agent": "wizard",
         "toolName": "mcp__dbt_index__describe",
-        "toolArgs": "{\"node\":\"fct_refunds\",\"include_sql\":false,\"include_tests\":true,\"include_columns\":true,\"include_lineage\":true}"
+        "toolArgs": "{\"node\":\"fct_refunds\",\"include\":[\"columns\",\"tests\",\"lineage\",\"catalog\"]}"
       },
       {
         "kind": "tool_result",
@@ -220,21 +241,21 @@
       {
         "kind": "narration",
         "agent": "wizard",
-        "body": "The index shows fct_refunds passes its uniqueness and not-null checks on refund_id, but the relationships test to fct_orders.order_id is currently failing with 14 orphan refunds as of the last run — surfaced from stored run state, not a re-run."
+        "body": "The index shows fct_refunds passes its uniqueness and not-null checks on refund_id, but the relationships test to fct_orders.order_id is currently failing with 14 orphan refunds as of the last run — one of the 3 failures status flagged, surfaced from stored run state, not a re-run."
       },
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "Three models deal with refunds: stg_refunds (bronze, view) -> int_order_refunds (silver, ephemeral) -> fct_refunds (gold, table). The most relevant is fct_refunds.\n\nGrain: one row per refund_id. Primary key: refund_id (passes unique + not_null).\n\nColumns: refund_id (VARCHAR, PK), order_id (VARCHAR), customer_id (VARCHAR), refund_amount (NUMBER(18,2)), refund_reason (VARCHAR), refunded_at (TIMESTAMP_NTZ). Schema analytics_gold.\n\nTest status from the last run (2026-05-29): unique and not_null on refund_id pass, but the relationships test from order_id to fct_orders.order_id is FAILING with 14 orphan rows. fct_refunds feeds fct_orders and dim_customers, so those 14 unmatched refunds are worth chasing before they propagate. Want me to trace those orphans against the warehouse?"
+        "body": "Project shape: 142 models (41 bronze, 63 silver, 38 gold) plus 18 sources, 6 seeds, 3 snapshots and 311 tests. Test coverage 81% (27 models untested), doc coverage 74%. Last dbt build on 2026-05-29 had 446 of 453 nodes pass, 3 fail, 4 skip.\n\nRefunds: three models, stg_refunds (bronze, view) -> int_order_refunds (silver, ephemeral) -> fct_refunds (gold, table). The most relevant is fct_refunds.\n\nGrain: one row per refund_id. Primary key: refund_id (passes unique + not_null).\n\nColumns: refund_id (VARCHAR, PK), order_id (VARCHAR), customer_id (VARCHAR), refund_amount (NUMBER(18,2)), refund_reason (VARCHAR), refunded_at (TIMESTAMP_NTZ). Schema analytics_gold.\n\nTest status from the last run: unique and not_null on refund_id pass, but the relationships test from order_id to fct_orders.order_id is FAILING with 14 orphan rows — that is one of the 3 build failures status reported. fct_refunds feeds fct_orders and dim_customers, so those 14 unmatched refunds are worth chasing before they propagate. Want me to trace those orphans against the warehouse?"
       }
     ]
   },
   "seNotes": [
-    "The selling point is state, not just structure: the index already holds the last run's pass/fail tests, row counts, and timings, so describe answers 'is this model healthy right now' without spending a single warehouse credit re-running anything.",
-    "Lead the demo with grain and PK. A general agent has to read schema.yml and infer; the index returns grain ('one row per X') and PK markers as first-class fields — that lands instantly with data engineers.",
-    "search has two modes worth showing back to back: BM25 over metadata for concept discovery ('find refunds'), then regex against compiled SQL for surgical column-usage hunts ('where is brand_name actually referenced'). Both attach DAG context to every hit.",
-    "changeset is epoch-based, diffing since the last index flush — frame it as 'what moved since my last build,' including test status flips, not a git diff of files.",
-    "Reinforce that none of this is file reading or grep: it's structured MCP calls (mcp__dbt_index__*) against a local DuckDB index, so results are typed, deterministic, and chainable into impact/lineage/warehouse follow-ups."
-  ],
-  "order": 3
+    "Open every project walkthrough with status. Per dbt Wizard's own description, it is the fastest first call for orientation: one structured call returns node counts by type and layer, doc and test coverage, and the last-run summary — the project shape before you touch a single node. It frames everything that follows.",
+    "The selling point is state, not just structure: the index already holds the last run's pass/fail tests, row counts, and per-node durations, so status and describe answer 'is this project / model healthy right now' without spending a single warehouse credit re-running anything.",
+    "Lead the per-node demo with grain and PK. A general agent has to read schema.yml and infer; the index returns grain ('one row per X') and PK markers as first-class fields — that lands instantly with data engineers.",
+    "search has two modes worth showing back to back: BM25 over metadata for concept discovery ('find refunds'), then regex against compiled SQL for surgical column-usage hunts ('where is brand_name actually referenced'). Both attach DAG context to every hit automatically.",
+    "changeset is epoch-based, diffing since since_epoch — frame it as 'what moved since my last build,' including test status flips, not a git diff of files. Add with_impact to attach blast radius to each change.",
+    "Reinforce that none of this is file reading or grep: it's structured MCP calls (mcp__dbt_index__*) against a local DuckDB index, so results are typed, deterministic, and chainable into impact/lineage/warehouse follow-ups. A natural status -> search -> describe sequence is the cleanest onboarding narrative for the index."
+  ]
 }

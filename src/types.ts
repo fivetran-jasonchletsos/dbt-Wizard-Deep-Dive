@@ -5,7 +5,7 @@
 
 export type EventKind = 'user' | 'narration' | 'tool_call' | 'tool_result' | 'code' | 'final';
 export type AgentRole =
-  | 'user' | 'wizard' | 'explorer' | 'summary' | 'worker' | 'verification' | 'test_writer' | 'system';
+  | 'user' | 'wizard' | 'explorer' | 'summary' | 'worker' | 'validation' | 'verification' | 'test_writer' | 'system';
 export type CodeLang = 'sql' | 'yaml' | 'json' | 'bash' | 'text';
 
 export interface InteractionEvent {
@@ -77,7 +77,8 @@ export const AGENT_META: Record<AgentRole, AgentMeta> = {
   explorer:     { name: 'Explorer',        code: 'EXP', color: '#4aa8ff' },
   summary:      { name: 'Summary',         code: 'SUM', color: '#00b4a0' },
   worker:       { name: 'Worker',          code: 'WRK', color: '#a78bfa' },
-  verification: { name: 'Verification',    code: 'VER', color: '#30c48d' },
+  validation:   { name: 'Validation',      code: 'VAL', color: '#30c48d' },
+  verification: { name: 'Validation',      code: 'VAL', color: '#30c48d' },
   test_writer:  { name: 'Test Writer',     code: 'TST', color: '#f5a623' },
   system:       { name: 'System',          code: 'SYS', color: '#6b7280' },
 };

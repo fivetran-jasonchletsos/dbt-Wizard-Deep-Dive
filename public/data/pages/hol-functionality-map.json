@@ -1,0 +1,300 @@
+{
+  "slug": "hol-functionality-map",
+  "title": "Hands-On Lab Functionality Map",
+  "tagline": "Every lab prompt mapped to the dbt Wizard functionality it triggers",
+  "summary": "This is the Snowflake Summit 2026 hands-on lab, mapped prompt-by-prompt to the dbt Wizard functionality firing behind each one. The lab uses a persona company, The Builder Depot (TBD), runs about 20 minutes, and walks attendees through 5 prompts across 2 scenarios. Scenario 1 (Onboarding, about 8 minutes) puts the attendee in their first week as a new analytics engineer: orient to the project, discover live data, and ship a small new mart by Friday. Scenario 2 (Extend the Model, about 3 minutes) is one month in: add support-ticket signal to enriched orders without breaking the grain. The lab is fixed-script and press-enter-to-advance, and it is safe-by-default: prompts compile and preview, they never materialize a model on the tour. For each prompt this page names the exact MCP tools, subagents, and skill that run behind the scenes, and states the business value in one line, so a facilitator can answer the attendee question that always comes: what just happened when I pressed enter.",
+  "whyDifferent": "Run these same five prompts at a general AI coding assistant and the mechanics behind them disappear. There is no live DuckDB index, so status, search, describe, and lineage cannot return the project's real node counts, doc and test coverage, layering, or upstream graph; the agent greps text and guesses. There is no warehouse tool, so the 10-row sample and the distinct order_status values are invented rather than read live and read-only from the warehouse. There is no auto-spawned validation subagent, so when the attendee extends enriched orders, no one builds the changed model with deferral against production, compares prod-vs-dev row counts, or catches the tickets fan-out before it ships; the attendee finds out when a downstream dashboard doubles. And the output is an answer in a chat window, not a versioned, tested, reviewable dbt model written into the repo and handed off with a structured summary. dbt Wizard is purpose-built for dbt projects: same prompts, but a live index, real warehouse reads, an automatic grain guardrail, and a materialized dbt asset at the end. All functional detail on this page reflects dbt Wizard's own description of its capabilities.",
+  "capabilities": [
+    {
+      "title": "S1.1 Onboarding orientation",
+      "detail": "Prompt: summarize what this dbt project does, its subject areas, and how it is organized, then list models grouped by layer and domain. Triggers status (project shape, node counts, doc and test coverage, last-run summary), search (BM25 metadata inventory of models by layer and domain), and describe with lineage to read the layering, all under the onboarding skill. Business value: collapses days of grepping an unfamiliar repo into a minutes-long, index-grounded orientation."
+    },
+    {
+      "title": "S1.2 Live data discovery",
+      "detail": "Prompt: show a 10-row sample from fct_orders and the distinct order_status values as readable tables, using a representative subset of key columns. Triggers describe (read fct_orders columns and grain to pick representative key columns) and warehouse (live read-only SQL for the sample rows and the distinct order_status values, no dbt run). Business value: real data in front of the new hire on day one without writing a query or opening a schema browser."
+    },
+    {
+      "title": "S1.3 Create orders_by_week mart",
+      "detail": "Prompt: create a new mart orders_by_week aggregating orders to week grain with order_count, gross_revenue, and distinct_customers, then compile and preview. Triggers describe and lineage (grain and columns to aggregate), the worker subagent (authors the SQL), dbt_compile (compile), dbt_show (preview without materializing, full Jinja resolved), the validation subagent (auto-fires), test_writer (tests), and submit_summary (handoff). Safe-by-default: it compiles and previews, it never materializes on the tour. Business value: a natural-language ask becomes a versioned, testable dbt model, previewed safely before anything is written to the warehouse."
+    },
+    {
+      "title": "S2.1 Is tickets joined to enriched orders",
+      "detail": "Prompt: is support ticket information joined to orders in enriched orders? Triggers describe (introspect int_orders_enriched to see whether stg_tickets is joined), lineage (the upstream graph of enriched orders), search (locate the ticket source model), and the explorer subagent for a fast, scoped answer. Business value: an instant, DAG-grounded blast-radius and source answer instead of manually tracing refs across files."
+    },
+    {
+      "title": "S2.2 Extend enriched orders safely",
+      "detail": "Prompt: update enriched orders to add ticket_count, has_open_ticket_flag, and last_ticket_status from stg_tickets, pre-aggregating tickets to one row per order_id before a left join, preserving every column. Triggers describe (stg_tickets grain and columns, columns to preserve), impact (downstream blast radius of changing int_orders_enriched), the worker subagent (authors the pre-aggregate CTE and LEFT JOIN), dbt_compile (compile downstream), dbt_show and warehouse (preview row count unchanged as a grain check), the validation subagent firing automatically (SQL check, dbt run --defer, prod-vs-dev row comparison, impact, catching a grain fan-out), test_writer, and submit_summary (breaking vs non-breaking). Business value: the model is extended with the validation gate catching a silent fan-out before SQL ever ships, not after a dashboard breaks."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "I'm a new analytics engineer onboarding to this dbt project. Summarize what it does, the main subject areas, and how it is organized. Then list all the models grouped by layer and domain.",
+      "intent": "Scenario 1.1 onboarding orientation: get your bearings in an unfamiliar project on day one.",
+      "invokes": [
+        "mcp__dbt_index__status",
+        "mcp__dbt_index__search",
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Show me a 10-row sample from fct_orders and the distinct values in the order_status column. Show both as readable tables. For the sample, use a representative subset of key columns.",
+      "intent": "Scenario 1.2 data discovery: see real data live without writing SQL or running dbt.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__warehouse"
+      ]
+    },
+    {
+      "prompt": "Create a new mart model called orders_by_week that aggregates orders to the week grain with order_count, gross_revenue, and distinct_customers. Then compile and preview it.",
+      "intent": "Scenario 1.3 create a new mart: ship something small by Friday, compiled and previewed but never materialized on the tour.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage",
+        "mcp__dbt_index__dbt_compile",
+        "mcp__dbt_index__dbt_show"
+      ]
+    },
+    {
+      "prompt": "Is support ticket information joined to orders, in enriched orders?",
+      "intent": "Scenario 2.1 discovery: find out whether the ticket source is already joined before extending the model.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage",
+        "mcp__dbt_index__search"
+      ]
+    },
+    {
+      "prompt": "Update enriched orders to add ticket count, has_open_ticket_flag, and last_ticket_status from stg_tickets. Then aggregate stg_tickets to one row per order_id before joining. Use a left join so orders without tickets still appear. Preserve every column.",
+      "intent": "Scenario 2.2 extend the model safely: add ticket signal while the validation gate guards the grain.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__impact",
+        "mcp__dbt_index__dbt_compile",
+        "mcp__dbt_index__dbt_show",
+        "mcp__dbt_index__warehouse",
+        "mcp__dbt_index__diff"
+      ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "mcp__dbt_index__status",
+      "signature": "mcp__dbt_index__status()",
+      "purpose": "Returns project shape from the local index: node counts by layer, doc and test coverage, and the last-run summary. Behind prompt 1.1 to orient a new analytics engineer instantly.",
+      "returns": "Node counts, layer breakdown, doc/test coverage percentages, and last-run summary."
+    },
+    {
+      "name": "mcp__dbt_index__search",
+      "signature": "mcp__dbt_index__search(query, layer?, domain?)",
+      "purpose": "BM25 metadata search over the indexed project to inventory models by layer and domain. Behind prompt 1.1 (group models) and prompt 2.1 (locate the ticket source).",
+      "returns": "Ranked model matches with layer, domain, and metadata snippets."
+    },
+    {
+      "name": "mcp__dbt_index__describe",
+      "signature": "mcp__dbt_index__describe(node)",
+      "purpose": "Introspects a node's columns, types, grain, and whether a given source is joined. Behind prompts 1.2, 1.3, 2.1, and 2.2 to pick key columns, find the grain, and check joins.",
+      "returns": "Column list with types, declared grain, tests, and upstream refs."
+    },
+    {
+      "name": "mcp__dbt_index__lineage",
+      "signature": "mcp__dbt_index__lineage(node, direction?)",
+      "purpose": "Returns the upstream and downstream graph for a node from the live DAG. Behind prompts 1.1, 1.3, and 2.1 to read layering and trace what feeds enriched orders.",
+      "returns": "Upstream and downstream node graph with edges."
+    },
+    {
+      "name": "mcp__dbt_index__warehouse",
+      "signature": "mcp__dbt_index__warehouse(sql, limit?)",
+      "purpose": "Live read-only SQL against the warehouse, SELECT-only with DML/DDL rejected at the tool boundary. Behind prompt 1.2 (10-row sample and distinct order_status) and the grain row-count check in 2.2. No dbt run required.",
+      "returns": "Result rows as structured JSON with column types and row count."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_compile",
+      "signature": "mcp__dbt_index__dbt_compile(select)",
+      "purpose": "Compiles a model to warehouse SQL with Jinja resolved, without materializing. Behind prompt 1.3 (compile the new mart) and 2.2 (compile downstream).",
+      "returns": "Compiled SQL for the selected node."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_show",
+      "signature": "mcp__dbt_index__dbt_show(select, limit?)",
+      "purpose": "Executes the compiled SQL and returns preview rows without materializing the model. Behind prompts 1.3 and 2.2 as the safe-by-default preview that never writes a table on the tour.",
+      "returns": "Preview result rows from the compiled, executed model."
+    },
+    {
+      "name": "mcp__dbt_index__impact",
+      "signature": "mcp__dbt_index__impact(node)",
+      "purpose": "Computes the downstream blast radius of changing a node and names affected consumers. Behind prompt 2.2 before editing int_orders_enriched.",
+      "returns": "List of downstream nodes and exposures impacted, with severity."
+    },
+    {
+      "name": "mcp__dbt_index__diff",
+      "signature": "mcp__dbt_index__diff(node, state?, defer?, primary_key?)",
+      "purpose": "Compares dev against production via deferred state for the edited node. Used by the auto-spawned validation subagent in 2.2 to catch the tickets fan-out.",
+      "returns": "Row-count delta, column-set delta, grain change flag, and breaking/non-breaking classification."
+    }
+  ],
+  "interaction": {
+    "scenario": "Scenario 2.2, played end-to-end. One month into The Builder Depot, the attendee extends int_orders_enriched with support-ticket signal. dbt Wizard reads the tickets grain, computes the downstream blast radius, the worker authors a pre-aggregated CTE and LEFT JOIN, and the validation subagent auto-fires after the edit, catching that an un-aggregated join would fan out the grain. Safe-by-default: it compiles and previews, it does not materialize on the tour.",
+    "userPrompt": "Update enriched orders to add ticket count, has_open_ticket_flag, and last_ticket_status from stg_tickets. Then aggregate stg_tickets to one row per order_id before joining. Use a left join so orders without tickets still appear. Preserve every column.",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Update enriched orders to add ticket count, has_open_ticket_flag, and last_ticket_status from stg_tickets. Then aggregate stg_tickets to one row per order_id before joining. Use a left join so orders without tickets still appear. Preserve every column."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Before editing, I'll read the grain of both sides and the downstream blast radius. stg_tickets is many-per-order, so a naive join would fan out int_orders_enriched. Checking columns, grain, and impact first."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"stg_tickets\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "stg_tickets grain is ticket_id, not order_id — many tickets per order.",
+        "code": "{\"node\":\"stg_tickets\",\"grain\":\"ticket_id\",\"rows\":41207,\"distinct_order_id\":12640,\"columns\":[\"ticket_id\",\"order_id\",\"ticket_status\",\"created_at\"]}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"int_orders_enriched\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "int_orders_enriched is one row per order_id; 22 columns to preserve.",
+        "code": "{\"node\":\"int_orders_enriched\",\"grain\":\"order_id\",\"rows\":18412,\"columns\":22}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__impact",
+        "toolArgs": "{\"node\":\"int_orders_enriched\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Downstream: fct_orders, dim_customers, and one exposure.",
+        "code": "{\"downstream\":[\"fct_orders\",\"dim_customers\"],\"exposures\":[\"orders_overview_dashboard\"],\"severity\":\"high\"}"
+      },
+      {
+        "kind": "narration",
+        "agent": "worker",
+        "body": "Authoring the edit. Pre-aggregating stg_tickets to one row per order_id (ticket_count, has_open_ticket_flag, last_ticket_status by created_at), then LEFT JOIN onto enriched orders so orders with no tickets still appear, preserving all 22 existing columns."
+      },
+      {
+        "kind": "code",
+        "agent": "worker",
+        "codeLang": "sql",
+        "code": "with enriched as (\n  select * from {{ ref('int_orders_enriched') }}\n),\ntickets as (\n  select\n    order_id,\n    count(ticket_id) as ticket_count,\n    max(case when ticket_status = 'open' then 1 else 0 end) as has_open_ticket_flag,\n    max_by(ticket_status, created_at) as last_ticket_status\n  from {{ ref('stg_tickets') }}\n  group by 1\n)\nselect\n  o.*,\n  coalesce(t.ticket_count, 0) as ticket_count,\n  coalesce(t.has_open_ticket_flag, 0) as has_open_ticket_flag,\n  t.last_ticket_status\nfrom enriched o\nleft join tickets t on o.order_id = t.order_id"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Model edit detected. Auto-spawning the validation subagent — no manual trigger. It runs the SQL grain check, a deferred build, a prod-vs-dev diff, and tests."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "validation",
+        "toolName": "mcp__dbt_index__warehouse",
+        "toolArgs": "{\"sql\":\"select count(*) as row_count, count(distinct order_id) as distinct_orders from dev.int_orders_enriched\",\"limit\":1}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "codeLang": "json",
+        "body": "Grain holds: row_count equals distinct order_id.",
+        "code": "{\"row_count\": 18412, \"distinct_orders\": 18412}"
+      },
+      {
+        "kind": "narration",
+        "agent": "validation",
+        "body": "Grain preserved at 18,412 rows, one per order_id. The pre-aggregated CTE prevented the fan-out the raw ticket_id-level join would have caused. Continuing to quantify against prod."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "validation",
+        "toolName": "mcp__dbt_index__dbt_run",
+        "toolArgs": "{\"select\":\"int_orders_enriched\",\"defer\":true,\"state\":\"target-prod/\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "codeLang": "json",
+        "body": "Deferred build succeeded; row count matches prod baseline.",
+        "code": "{\"node\":\"int_orders_enriched\",\"status\":\"success\",\"rows\":18412,\"exec_seconds\":6.1,\"deferred_upstreams\":4}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "validation",
+        "toolName": "mcp__dbt_index__diff",
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"state\":\"target-prod/\",\"defer\":true,\"primary_key\":\"order_id\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "codeLang": "json",
+        "body": "Non-breaking: no row change, three new columns, grain intact.",
+        "code": "{\"rows_added\":0,\"rows_removed\":0,\"rows_changed\":18412,\"columns_added\":[\"ticket_count\",\"has_open_ticket_flag\",\"last_ticket_status\"],\"grain_changed\":false,\"classification\":\"non-breaking\"}"
+      },
+      {
+        "kind": "narration",
+        "agent": "validation",
+        "body": "For contrast: an un-aggregated join on stg_tickets would have produced 47,019 rows against 18,412 distinct order_id — a fan-out that breaks fct_orders and dim_customers. The pre-aggregation is why this comes back non-breaking."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "test_writer",
+        "toolName": "mcp__dbt_index__dbt_test",
+        "toolArgs": "{\"select\":\"int_orders_enriched\",\"defer\":true,\"state\":\"target-prod/\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "test_writer",
+        "codeLang": "json",
+        "body": "All tests pass, including order_id uniqueness.",
+        "code": "{\"unique_int_orders_enriched_order_id\":\"pass\",\"not_null_order_id\":\"pass\",\"tests_run\":5,\"failed\":0}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Safe-by-default on the tour: I'll compile and preview the result, not materialize it. Showing the preview now."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_show",
+        "toolArgs": "{\"select\":\"int_orders_enriched\",\"limit\":5}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Preview rows show the three new columns; orders without tickets show 0 and null as intended.",
+        "code": "{\"rows\":[{\"order_id\":\"TBD-10044\",\"ticket_count\":2,\"has_open_ticket_flag\":1,\"last_ticket_status\":\"open\"},{\"order_id\":\"TBD-10045\",\"ticket_count\":0,\"has_open_ticket_flag\":0,\"last_ticket_status\":null}],\"shown\":5}"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Done, and nothing was materialized. I read the stg_tickets grain (ticket_id, many per order) and int_orders_enriched grain (order_id) up front, computed the downstream blast radius (fct_orders, dim_customers, and the orders_overview_dashboard exposure), and the worker pre-aggregated tickets to one row per order_id before a LEFT JOIN, preserving all 22 existing columns. The validation subagent fired automatically on the edit: grain held at 18,412 rows, the deferred build matched prod, the prod-vs-dev diff is non-breaking with three columns added, and all 5 tests pass. Had this been an un-aggregated join it would have fanned out to 47,019 rows and broken downstream order counts — the gate would have caught it. This is a validated, in-warehouse change ready for review. Handing off via submit_summary: task_summary, assumptions, non-breaking classification, and the named downstream consumers."
+      }
+    ]
+  },
+  "seNotes": [
+    "The lab is fixed-script and press-enter-to-advance. Reassure attendees they cannot get lost or break anything; every prompt is pre-written and they only press enter to move to the next step.",
+    "Safe-by-default is the rule for the whole tour: prompts compile and preview (dbt_compile and dbt_show), they never materialize a model into the warehouse. Say this out loud at prompt 1.3 and again at 2.2 so nobody worries about writing to a shared environment.",
+    "When an attendee asks what just happened, point them at this map: name the exact tools that fired (for 1.1, status plus search plus describe and lineage under the onboarding skill; for 1.2, describe plus the read-only warehouse read; for 2.2, describe, impact, the worker, then the auto-spawned validation subagent), and give the one-line business value.",
+    "The headline moment is 2.2: the validation subagent fires the instant the model is edited, with no one asking, and it catches the tickets grain fan-out before any SQL ships. Contrast that with a general agent that edits a file and stops, where the attendee would find out only when a downstream dashboard doubled.",
+    "Tie it back to the Fivetran story: Fivetran moves the data, dbt transforms it, and dbt Wizard validates the in-warehouse change before it lands. The lab's end state is a versioned, tested dbt asset in the repo, not an answer in a chat window.",
+    "All functional detail on this page is sourced from dbt Wizard itself; it reflects dbt Wizard's own description of its capabilities. If pressed on a tool or subagent behavior, defer to that reference rather than improvising beyond it."
+  ]
+}

@@ -110,7 +110,7 @@
         "kind": "tool_call",
         "agent": "explorer",
         "toolName": "mcp__dbt_index__search",
-        "toolArgs": "{\"query\":\"inventory shipment allocation store item\",\"mode\":\"bm25\",\"with_dag_context\":true}"
+        "toolArgs": "{\"query\":\"inventory shipment allocation store item\",\"mode\":\"bm25\"}"
       },
       {
         "kind": "tool_result",
@@ -133,13 +133,13 @@
       {
         "kind": "narration",
         "agent": "wizard",
-        "body": "SKILL.md workflow step 2: run the bundled deterministic check. Loading Level 3 resource scripts/check_overallocation.py, which compares allocated_units against on_hand_units per store for the target item and flags overage rows. The script issues a read-only warehouse query rather than re-deriving the logic."
+        "body": "SKILL.md workflow step 2: run the bundled deterministic check. Loading Level 3 resource scripts/check_overallocation.py, which compares allocated_units against on_hand_units per store for the target item and flags overage rows. The script issues a SELECT-only warehouse query rather than re-deriving the logic; the warehouse tool is read-only by design and rejects DML/DDL."
       },
       {
         "kind": "tool_call",
         "agent": "worker",
         "toolName": "mcp__dbt_index__warehouse",
-        "toolArgs": "{\"sql\":\"select store_id, allocated_units, on_hand_units, allocated_units - on_hand_units as overage from analytics.int_inventory_allocation where item_id = 'A' and allocated_units > on_hand_units order by overage desc\",\"read_only\":true}"
+        "toolArgs": "{\"sql\":\"select store_id, allocated_units, on_hand_units, allocated_units - on_hand_units as overage from analytics.int_inventory_allocation where item_id = 'A' and allocated_units > on_hand_units order by overage desc\",\"limit\":100}"
       },
       {
         "kind": "tool_result",
@@ -167,7 +167,7 @@
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "scenario-1 triggered from your wording (no skill name needed) and loaded its SKILL.md body plus the bundled scripts/check_overallocation.py only when step 2 needed it. Findings: Item A is over-allocated at 3 stores for 165 units total, concentrated at S-104 (110-unit overage, allocated 320 vs 210 on hand). The inflated allocated_units flows into fct_store_replenishment (high severity) and dim_store_health (medium). Grain is clean (store_id + item_id, unique test passing), so the issue is allocation logic, not a fan-out. Next per the skill's workflow: build an overage model isolating these rows, compile it, and preview without materializing. Say the word and I'll author it and run the validation subagent before any merge."
+        "body": "scenario-1 triggered from your wording (no skill name needed) and loaded its SKILL.md body plus the bundled scripts/check_overallocation.py only when step 2 needed it. Findings: Item A is over-allocated at 3 stores for 165 units total, concentrated at S-104 (110-unit overage, allocated 320 vs 210 on hand). The inflated allocated_units flows into fct_store_replenishment (high severity) and dim_store_health (medium). Grain is clean (store_id + item_id, unique test passing), so the issue is allocation logic, not a fan-out. Next per the skill's workflow: build an overage model isolating these rows, compile it, and preview without materializing. Say the word and I'll author it, have the test_writer add coverage for the overage rule, and run the validation subagent before any merge."
       }
     ]
   },
@@ -176,8 +176,7 @@
     "Demo the auto-trigger: the SE never names the skill. The prompt wording matches the skill's description frontmatter and the SKILL.md loads itself. Use scenario-1's 'shipment misallocation' phrasing to make the match obvious.",
     "Emphasize that scripts/ run deterministically. The same inputs produce the same outputs because the logic lives in bundled Python/Bash, not in model improvisation, which is what makes the workflow reproducible on stage.",
     "Name the three resource types precisely: scripts/ (executable, deterministic), references/ (docs/schemas/API specs loaded on demand), assets/ (templates/boilerplate copied into output). Don't conflate them.",
-    "Skills compose with the rest of the product: a triggered skill still drives mcp__dbt_index__* tools, can spawn explorer/worker/validation/test_writer subagents, and hands off via submit_summary. The skill is the workflow; the tools and subagents are the execution."
-  ],
-  "tools": [],
-  "order": 9
+    "Skills compose with the rest of the product: a triggered skill still drives mcp__dbt_index__* tools, can spawn explorer/worker/validation/test_writer subagents, and hands off via submit_summary. The skill is the workflow; the tools and subagents are the execution.",
+    "On provenance, answer 'can we add our own workflow' with yes: skills ship with the product as plain SKILL.md files plus bundled scripts/, references/, and assets/. They are not opaque or compiled, so the team can author new skills and extend the shipped ones by editing the frontmatter, body, and bundled resources in the same format the installed scenarios use."
+  ]
 }

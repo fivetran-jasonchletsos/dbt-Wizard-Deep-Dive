@@ -136,26 +136,28 @@ export default function FunctionalityPage() {
                   {tool.purpose}
                 </p>
                 {tool.params && tool.params.length > 0 && (
-                  <table className="ref-table w-full text-sm">
-                    <thead>
-                      <tr>
-                        <th>Param</th>
-                        <th>Type</th>
-                        <th>Description</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tool.params.map((p, pi) => (
-                        <tr key={pi}>
-                          <td className="font-mono">{p.name}</td>
-                          <td className="font-mono" style={{ color: 'var(--text-muted)' }}>
-                            {p.type || '—'}
-                          </td>
-                          <td style={{ color: 'var(--text-soft)' }}>{p.desc}</td>
+                  <div className="overflow-x-auto scroll-thin">
+                    <table className="ref-table w-full text-sm" style={{ minWidth: 420 }}>
+                      <thead>
+                        <tr>
+                          <th>Param</th>
+                          <th>Type</th>
+                          <th>Description</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {tool.params.map((p, pi) => (
+                          <tr key={pi}>
+                            <td className="font-mono">{p.name}</td>
+                            <td className="font-mono" style={{ color: 'var(--text-muted)' }}>
+                              {p.type || '—'}
+                            </td>
+                            <td style={{ color: 'var(--text-soft)' }}>{p.desc}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
                 {tool.returns && (
                   <div>

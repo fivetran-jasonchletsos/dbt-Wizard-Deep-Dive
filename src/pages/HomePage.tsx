@@ -32,11 +32,30 @@ export default function HomePage() {
           reasons over lineage, grain, and warehouse state rather than raw text.
         </p>
 
+        <div
+          className="mt-7 panel p-5"
+          style={{ borderLeft: '4px solid var(--dbt)' }}
+        >
+          <div className="eyebrow" style={{ color: 'var(--dbt)' }}>
+            THE ONE-LINER
+          </div>
+          <p
+            className="mt-2 font-display leading-snug"
+            style={{ fontSize: 'clamp(1.1rem, 2.4vw, 1.5rem)', color: 'var(--text)' }}
+          >
+            dbt Wizard turns a natural-language business question into a
+            materialized, tested, version-controlled dbt model, without the
+            engineer ever opening a schema browser, writing a JOIN from scratch,
+            or breaking a downstream dashboard.
+          </p>
+        </div>
+
         <div className="flex flex-wrap gap-2 mt-7">
-          <span className="chip chip-teal">16 MCP tools</span>
+          <span className="chip chip-teal">17 MCP tools</span>
           <span className="chip chip-violet">4 sub-agent roles</span>
           <span className="chip chip-muted">3-level skills</span>
           <span className="chip chip-teal">live DuckDB index</span>
+          <span className="chip chip-muted">terminal CLI and dbt platform</span>
         </div>
       </section>
 
@@ -87,7 +106,9 @@ export default function HomePage() {
         style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--line)' }}
       >
         This is an internal enablement artifact. dbt Wizard is built by Fivetran
-        and operates on dbt Labs dbt.
+        and operates on dbt Labs dbt. Functional details on this site are sourced
+        from dbt Wizard itself and reflect its own description of its
+        capabilities.
       </footer>
     </div>
   );

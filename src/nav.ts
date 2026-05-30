@@ -19,6 +19,11 @@ export const NAV: NavGroup[] = [
     items: [{ slug: 'overview', label: 'Why dbt Wizard Is Different' }],
   },
   {
+    label: 'Hands-On Lab',
+    blurb: 'Summit 2026 prompts, mapped',
+    items: [{ slug: 'hol-functionality-map', label: 'HOL Functionality Map' }],
+  },
+  {
     label: 'Graph & Index Intelligence',
     blurb: 'Operating on the DAG, not files',
     items: [
@@ -47,8 +52,11 @@ export const NAV: NavGroup[] = [
   },
   {
     label: 'Reference',
-    blurb: 'Every tool, one table',
-    items: [{ slug: 'mcp-tool-reference', label: 'MCP Tool Reference' }],
+    blurb: 'Architecture and every tool',
+    items: [
+      { slug: 'architecture-trust', label: 'Architecture, Trust & Prerequisites' },
+      { slug: 'mcp-tool-reference', label: 'MCP Tool Reference' },
+    ],
   },
 ];
 

@@ -4,11 +4,12 @@
  * dbt Wizard — Deep Dive.
  *
  * dbt Labs palette on a dark charcoal canvas: dbt orange primary, teal accent,
- * violet for dbt State / agent threads. Inter for UI, IBM Plex Mono for the
- * terminal + code surfaces. A field reference, not a landing page.
+ * violet for dbt State / agent threads. Familjen Grotesk display, IBM Plex Sans
+ * body, IBM Plex Mono for the terminal + code surfaces. A field reference, not a
+ * landing page.
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Familjen+Grotesk:ital,wght@0,400..700;1,400..700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
 
 :root {
   color-scheme: dark;
@@ -66,9 +67,11 @@ html, body, #root { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--surface-0);
+  background:
+    radial-gradient(1200px 620px at 50% -12%, rgba(255, 105, 75, 0.07), transparent 60%),
+    var(--surface-0);
   color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
   font-size: 14px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
@@ -90,11 +93,22 @@ body::before {
 
 #root { position: relative; z-index: 1; }
 
+/* Thin dbt accent stripe pinned to the very top — sets the tone without taking space. */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--dbt) 0%, var(--dbt-deep) 45%, var(--teal) 100%);
+  z-index: 50;
+  pointer-events: none;
+}
+
 /* ============= TYPE SYSTEM ============= */
 .font-display {
-  font-family: 'Inter', system-ui, sans-serif;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+  font-family: 'Familjen Grotesk', system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.018em;
 }
 .font-mono {
   font-family: 'IBM Plex Mono', 'JetBrains Mono', ui-monospace, monospace;
@@ -189,7 +203,7 @@ body::before {
 
 /* ============= CHAT THREAD ============= */
 .chat-bubble {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
   font-size: 13.5px;
   line-height: 1.65;
   color: var(--text);
@@ -238,7 +252,7 @@ body::before {
   align-items: center;
   gap: 8px;
   padding: 9px 16px;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
   font-weight: 600;
   font-size: 13px;
   letter-spacing: 0.01em;
@@ -267,7 +281,7 @@ body::before {
 /* ============= NAV LINKS ============= */
 .nav-link {
   display: block;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'IBM Plex Sans', system-ui, sans-serif;
   font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);

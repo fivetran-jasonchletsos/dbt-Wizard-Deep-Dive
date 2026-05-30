@@ -2,109 +2,8 @@
   "slug": "dag-aware-intelligence",
   "title": "DAG-Aware Intelligence",
   "tagline": "Severity-rated blast radius, lineage traversal, critical-path timings",
-  "summary": "dbt Wizard reasons over a live, queryable DAG graph (models, columns, tests, edges) backed by a local DuckDB index, not by reading files. Impact reports trace column- and node-level blast radius through the DAG with critical/high/medium/low severity ratings; lineage traversal walks upstream/downstream with hop-depth control, edge-type filtering, and subgraph scoping; and bottleneck analysis surfaces critical-path nodes from real run timings and OpenTelemetry traces. The headline workflow: ask what breaks if a column is dropped or renamed, and the wizard returns a severity-rated list of downstream consumers plus the exact lineage path connecting them.",
+  "summary": "dbt Wizard reasons over a live, queryable DAG graph (models, columns, tests, edges) backed by a local DuckDB index, not by reading files. Impact reports trace column- and node-level blast radius through the DAG with critical/high/medium/low severity ratings; lineage traversal walks upstream/downstream with hop-depth control, edge-type filtering, and column-level tracing; and bottleneck analysis surfaces critical-path nodes from per-node durations captured from the last run. The headline workflow: ask what breaks if a column is dropped or renamed, and the wizard returns a severity-rated list of downstream consumers plus the exact lineage path connecting them.",
   "whyDifferent": "A general AI coding agent answers \"what references brand_name\" with grep: a flat list of files containing that string, no ordering, no understanding of whether a match is a passthrough alias or a load-bearing join key. dbt Wizard answers \"what breaks if I drop brand_name\" by traversing the actual compiled DAG and warehouse catalog, returning each affected node with a severity rating and the lineage path that explains why. Grep cannot tell you that a fct_orders test will fail or that a downstream MetricFlow metric loses its dimension; the DAG index can. Severity comes from edge type, test coverage, and grain, not from text frequency.",
-  "tools": [
-    {
-      "name": "mcp__dbt_index__impact",
-      "signature": "mcp__dbt_index__impact(node, column?, change_type?, max_depth?, scope?)",
-      "purpose": "Compute DAG-aware blast radius for a node or specific column, classifying every downstream consumer with a critical/high/medium/low severity rating derived from edge type, test coverage, grain dependency, and materialization.",
-      "params": [
-        {
-          "name": "node",
-          "type": "string",
-          "desc": "Target model/source whose change is being assessed, e.g. stg_products."
-        },
-        {
-          "name": "column",
-          "type": "string",
-          "desc": "Optional column to scope blast radius to a single field, e.g. brand_name. Omit for whole-node impact."
-        },
-        {
-          "name": "change_type",
-          "type": "string",
-          "desc": "Optional: drop | rename | type_change | logic_change. Tunes severity heuristics."
-        },
-        {
-          "name": "max_depth",
-          "type": "int",
-          "desc": "Optional hop limit on downstream traversal. Defaults to full transitive closure."
-        },
-        {
-          "name": "scope",
-          "type": "string",
-          "desc": "Optional subgraph restriction, e.g. a layer (silver, gold) or tag selector."
-        }
-      ],
-      "returns": "Ordered list of affected nodes with severity (critical/high/medium/low), the dependency reason (join key, filter, passthrough, test input, metric dimension), affected tests, and a per-node hop distance. Includes a rollup count by severity tier."
-    },
-    {
-      "name": "mcp__dbt_index__lineage",
-      "signature": "mcp__dbt_index__lineage(node, column?, direction?, max_depth?, edge_types?, scope?)",
-      "purpose": "Traverse the DAG upstream and/or downstream from a node or column, returning the ordered path of nodes and edges so an SE can see exactly how a change propagates.",
-      "params": [
-        {
-          "name": "node",
-          "type": "string",
-          "desc": "Starting node for traversal, e.g. fct_orders."
-        },
-        {
-          "name": "column",
-          "type": "string",
-          "desc": "Optional column-level lineage, e.g. trace brand_name field through the graph."
-        },
-        {
-          "name": "direction",
-          "type": "string",
-          "desc": "upstream | downstream | both. Defaults to both."
-        },
-        {
-          "name": "max_depth",
-          "type": "int",
-          "desc": "Hop-depth control; caps how many edges out the traversal walks."
-        },
-        {
-          "name": "edge_types",
-          "type": "string[]",
-          "desc": "Optional edge-type filter: ref, source, test, metric. Restricts which dependency kinds are followed."
-        },
-        {
-          "name": "scope",
-          "type": "string",
-          "desc": "Optional subgraph scoping to a layer or tag selector."
-        }
-      ],
-      "returns": "Ordered node/edge path with hop distances and edge types, plus the resolved subgraph. Column-level mode returns the field-to-field transformation chain."
-    },
-    {
-      "name": "mcp__dbt_index__timings",
-      "signature": "mcp__dbt_index__timings(scope?, sort?, limit?, critical_path?)",
-      "purpose": "Report build performance from the last run: slowest nodes, critical-path bottlenecks, and OpenTelemetry trace data so SEs can find what is actually gating the pipeline.",
-      "params": [
-        {
-          "name": "scope",
-          "type": "string",
-          "desc": "Optional subgraph/layer/tag restriction for the timing report."
-        },
-        {
-          "name": "sort",
-          "type": "string",
-          "desc": "Optional: duration | self_time | queue_time. Defaults to duration."
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "desc": "Optional cap on number of nodes returned."
-        },
-        {
-          "name": "critical_path",
-          "type": "bool",
-          "desc": "When true, returns only nodes on the longest dependency path gating total build time."
-        }
-      ],
-      "returns": "Ranked nodes with execution durations, self vs. wall time, queue time, and a flag for critical-path membership. Includes OpenTelemetry span references for the slowest nodes."
-    }
-  ],
   "capabilities": [
     {
       "title": "Column-level blast radius with severity",
@@ -119,12 +18,12 @@
       "detail": "mcp__dbt_index__lineage walks upstream or downstream with a max_depth hop cap, so an SE can ask for one hop (direct dependents) or full transitive closure. Direction is upstream, downstream, or both."
     },
     {
-      "title": "Edge-type filtering and subgraph scoping",
-      "detail": "Lineage can follow only ref edges, or include test and metric edges, and can be restricted to a layer (silver, gold) or tag selector. This isolates the propagation path that actually matters for a given question."
+      "title": "Edge-type filtering and column-level lineage",
+      "detail": "Lineage can follow only ref edges, or include test and metric edges via edge_types, and can trace a single column field-to-field through the graph. This isolates the propagation path that actually matters for a given question."
     },
     {
       "title": "Critical-path bottleneck analysis",
-      "detail": "mcp__dbt_index__timings identifies the slowest nodes and the critical-path nodes gating total build time, backed by real last-run durations and OpenTelemetry trace spans, not estimates."
+      "detail": "mcp__dbt_index__timings identifies the slowest nodes and the critical-path nodes gating total build time. The numbers are per-node durations and critical-path data from the last run, captured from dbt run results and events into the index, rather than guesses."
     },
     {
       "title": "Impact plus lineage in one answer",
@@ -156,7 +55,7 @@
     },
     {
       "prompt": "Trace the lineage of brand_name from source through to the gold layer.",
-      "intent": "Column-level field-to-field lineage scoped across layers.",
+      "intent": "Column-level field-to-field lineage across layers.",
       "invokes": [
         "mcp__dbt_index__lineage"
       ]
@@ -182,6 +81,97 @@
         "mcp__dbt_index__impact",
         "mcp__dbt_index__lineage"
       ]
+    }
+  ],
+  "tools": [
+    {
+      "name": "mcp__dbt_index__impact",
+      "signature": "mcp__dbt_index__impact(node, column?, change_type?, max_depth?, scope?)",
+      "purpose": "Compute DAG-aware blast radius for a node or specific column, classifying every downstream consumer with a critical/high/medium/low severity rating derived from edge type, test coverage, grain dependency, and materialization.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Target model/source whose change is being assessed, e.g. stg_products."
+        },
+        {
+          "name": "column",
+          "type": "string",
+          "desc": "Optional column to scope blast radius to a single field, e.g. brand_name. Omit for whole-node impact."
+        },
+        {
+          "name": "change_type",
+          "type": "string",
+          "desc": "Optional: drop, rename, type_change, or logic_change. Tunes severity heuristics."
+        },
+        {
+          "name": "max_depth",
+          "type": "int",
+          "desc": "Optional hop limit on downstream traversal. Defaults to full transitive closure."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "desc": "Optional subgraph restriction, e.g. a layer (silver, gold) or tag selector."
+        }
+      ],
+      "returns": "Ordered list of affected nodes with severity (critical/high/medium/low), the dependency reason (join key, filter, passthrough, test input, metric dimension), affected tests, and a per-node hop distance. Includes a rollup count by severity tier."
+    },
+    {
+      "name": "mcp__dbt_index__lineage",
+      "signature": "mcp__dbt_index__lineage(node, direction?, max_depth?, edge_types?, column?)",
+      "purpose": "Traverse the DAG upstream and/or downstream from a node or column, returning the ordered path of nodes and edges so an SE can see exactly how a change propagates.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Starting node for traversal, e.g. fct_orders."
+        },
+        {
+          "name": "direction",
+          "type": "string",
+          "desc": "upstream, downstream, or both. Defaults to both."
+        },
+        {
+          "name": "max_depth",
+          "type": "int",
+          "desc": "Hop-depth control; caps how many edges out the traversal walks."
+        },
+        {
+          "name": "edge_types",
+          "type": "string[]",
+          "desc": "Optional edge-type filter: ref, source, test, metric. Restricts which dependency kinds are followed."
+        },
+        {
+          "name": "column",
+          "type": "string",
+          "desc": "Optional column-level lineage, e.g. trace brand_name field-to-field through the graph."
+        }
+      ],
+      "returns": "Ordered node/edge path with hop distances and edge types. Column-level mode returns the field-to-field transformation chain."
+    },
+    {
+      "name": "mcp__dbt_index__timings",
+      "signature": "mcp__dbt_index__timings(view?, node?, limit?)",
+      "purpose": "Report build performance from the last run: slowest nodes or critical-path bottlenecks, so SEs can find what is actually gating the pipeline.",
+      "params": [
+        {
+          "name": "view",
+          "type": "string",
+          "desc": "Optional: slowest or critical_path. slowest ranks nodes by duration; critical_path returns the nodes on the longest dependency path gating total build time."
+        },
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Optional node to scope the timing report to a single model and its path."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "desc": "Optional cap on number of nodes returned."
+        }
+      ],
+      "returns": "Ranked nodes with per-node execution durations and a flag for critical-path membership. Durations and critical-path data are captured from the last run's dbt run results and events into the index."
     }
   ],
   "interaction": {
@@ -244,7 +234,6 @@
     "Severity comes from DAG structure and the warehouse catalog, not text frequency. A column referenced once as a join key outranks one mentioned ten times in comments. Be ready to explain the inputs: edge type, test coverage, grain, materialization.",
     "Pair impact with lineage in the same answer. Impact says what breaks and how badly; lineage shows the exact path. Showing both is what makes the answer trustworthy to a skeptical data engineer.",
     "Show edge-type filtering and max_depth live. Toggling edge_types to include test and metric edges, or capping max_depth to one hop for 'just direct dependents,' demonstrates this is graph traversal, not a flat search.",
-    "timings is backed by real last-run durations and OpenTelemetry spans, not estimates. If asked about cost or performance, pivot to critical_path mode to show the nodes actually gating total build time rather than just the slowest in isolation."
-  ],
-  "order": 2
+    "timings reports per-node durations and critical-path data captured from the last run's dbt run results and events into the index, so they are grounded in real execution rather than estimates. If asked about cost or performance, pivot to the critical_path view to show the nodes actually gating total build time rather than just the slowest in isolation."
+  ]
 }

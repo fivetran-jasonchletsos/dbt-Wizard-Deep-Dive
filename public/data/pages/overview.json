@@ -1,13 +1,29 @@
 {
   "slug": "overview",
   "title": "Overview — Why dbt Wizard Is Different",
-  "tagline": "A dbt agent that queries a live DAG graph, not files",
-  "summary": "dbt Wizard is an AI agent for dbt projects, built by Fivetran and operating on dbt Labs' dbt. Instead of reading source files and grepping text, it answers questions against a live, queryable index of the project: models, columns, tests, and edges held in a local DuckDB index, joined to the warehouse as one unified graph. Every search, impact, and lineage call returns DAG context inline — parents, children, grain, PK markers, materialization, and last-run test state — because the index already reflects the actual last-run state. Interaction happens through structured MCP tool calls (mcp__dbt_index__*), not shell strings or raw file access.",
-  "whyDifferent": "A general AI coding agent treats a dbt project as a directory of text: it opens .sql and .yml files, greps for a column name, and infers relationships from {{ ref() }} strings it happens to read. It has no notion of grain, PK, materialization, or whether a test currently passes — and a textual match for brand_name tells you nothing about blast radius. dbt Wizard instead traverses a precomputed graph where edges are real lineage, results carry severity and test state, and the warehouse is one query away. The difference is structured graph intelligence versus pattern-matching over file contents.",
+  "tagline": "dbt Wizard turns a natural-language business question into a materialized, tested, version-controlled dbt model — without the engineer ever opening a schema browser, writing a JOIN from scratch, or breaking a downstream dashboard.",
+  "summary": "dbt Wizard is an agentic coding assistant purpose-built for dbt projects, built by Fivetran and operating on dbt Labs' dbt. By dbt Wizard's own description, it runs as a terminal-based CLI and also inside the dbt platform (Public Beta for dbt platform customers with dbt Copilot plus Beta enabled), with an \"Ask for approval\" mode that keeps a human in the loop. It extends the Fivetran pipeline from move and transform into governed, validated, in-warehouse change. Instead of reading source files and grepping text, it answers questions against a live, queryable index of the project: models, columns, tests, and edges held in a local DuckDB index, joined to the warehouse as one unified graph. All interaction happens through 17 structured MCP tool calls (mcp__dbt_index__*), not shell strings or raw file access, and every search, impact, and lineage call returns DAG context inline — parents, children, grain, PK markers, materialization, and last-run test state — because the index already reflects the actual last-run state. The keynote framing: dbt Wizard turns a natural-language business question into a materialized, tested, version-controlled dbt model — without the engineer ever opening a schema browser, writing a JOIN from scratch, or breaking a downstream dashboard. Design-partner results report a 15-20% incident reduction on average (individual results vary). The boundary is clear: Fivetran builds the agent; dbt Labs owns dbt, the DAG, MetricFlow, and tests.",
+  "whyDifferent": "A general AI coding agent treats a dbt project as a directory of text: it opens .sql and .yml files, greps for a column name, and infers relationships from {{ ref() }} strings it happens to read. It has no notion of grain, PK, materialization, or whether a test currently passes — and a textual match for brand_name tells you nothing about blast radius. Worse, when it answers a business question it hands you SQL in a chat window: an answer, not an asset. dbt Wizard instead traverses a precomputed graph where edges are real lineage, results carry severity and test state, and the warehouse is one query away — and it lands the result as a versioned, testable, reviewable dbt model in the repo. There are three problems no general agent solves, all reflecting dbt Wizard's own description of its capabilities: archaeology (onboarding, blast-radius, and source discovery collapse from days of grepping to minutes on a live DAG); silent failures (grain mismatches, key-coverage gaps, and downstream contract breaks are caught before SQL is even written); and answer versus asset (a chat-window query becomes a materialized, tested, version-controlled model). It is also a Fivetran capability rather than a standalone dbt add-on: dbt Wizard is built by Fivetran and operates on dbt Labs' dbt, extending the Fivetran pipeline from move and transform into governed, validated, in-warehouse change. Fivetran builds the agent; dbt Labs owns dbt, the DAG, MetricFlow, and tests.",
   "capabilities": [
     {
+      "title": "Why dbt Wizard, problem 1: Archaeology",
+      "detail": "Onboarding into an unfamiliar project, tracing blast radius before a change, and discovering where a source actually lands are the slow parts of dbt work. A general agent does this by grepping text across files. dbt Wizard collapses days of archaeology to minutes by querying a live DAG: one orientation pass returns layers, grains, PKs, materializations, and current test state without opening a file. This reflects dbt Wizard's own description of its capabilities."
+    },
+    {
+      "title": "Why dbt Wizard, problem 2: Silent failures",
+      "detail": "The expensive bugs in analytics are silent: grain mismatches that fan out rows, key-coverage gaps that drop records on a join, and downstream contract breaks that surface in a dashboard weeks later. Because the index carries grain, PK markers, and lineage, dbt Wizard catches these before any SQL is written rather than after a stakeholder notices a wrong number."
+    },
+    {
+      "title": "Why dbt Wizard, problem 3: Answer vs asset",
+      "detail": "A general coding agent answers a business question with SQL in a chat window — an answer you copy out and lose. dbt Wizard writes a versioned, testable, reviewable dbt model into the repo, with tests and docs alongside it. The output is a durable asset under source control, not a transient response."
+    },
+    {
+      "title": "Terminal CLI and in the dbt platform",
+      "detail": "dbt Wizard runs as a terminal-based CLI and also inside the dbt platform (Public Beta for dbt platform customers with dbt Copilot plus Beta enabled). An 'Ask for approval' mode keeps a human in the loop on changes. SEs can demo it either at the command line or in the platform, per dbt Wizard's own description of how it operates."
+    },
+    {
       "title": "Local DuckDB project index",
-      "detail": "Models, columns, tests, and edges are indexed in a local DuckDB store that reflects the actual last-run state: pass/fail tests, run results, timings, grain, PK markers, schemas, and materializations are known out of the box, with no file parsing at query time."
+      "detail": "Models, columns, tests, and edges are indexed in a local DuckDB store that reflects the actual last-run state: pass/fail tests, run results, timings, grain, PK markers, schemas, and materializations are known out of the box, with no file parsing at query time. The status tool reads this index to return project shape, node counts, doc/test coverage, and a last-run summary in one call."
     },
     {
       "title": "Graph context on every result",
@@ -15,18 +31,80 @@
     },
     {
       "title": "Structured tool calls, not shell or grep",
-      "detail": "All interaction is through typed mcp__dbt_index__* tool calls with named arguments and structured returns. There is no grep, no cat, no fuzzy file globbing — search can run BM25 over metadata or regex over raw/compiled SQL, but always with DAG context attached."
+      "detail": "All interaction is through 17 typed mcp__dbt_index__* tool calls (status, search, describe, lineage, impact, changeset, warehouse, dbt_show, dbt_build, dbt_run, dbt_compile, dbt_test, dbt_parse, diff, context, metrics, timings) with named arguments and structured returns. There is no grep, no cat, no fuzzy file globbing — search can run BM25 over metadata or regex over raw/compiled SQL, but always with DAG context attached."
     },
     {
       "title": "Warehouse as part of the same graph",
-      "detail": "mcp__dbt_index__warehouse runs read-only SQL directly against Snowflake/BigQuery for live previews, and dbt_show resolves full Jinja against the warehouse — so the agent reasons over both the modeled graph and live data without a dbt run."
+      "detail": "mcp__dbt_index__warehouse is read-only by design: it issues SELECT-only statements and rejects DML/DDL, with that contract enforced at the tool boundary before any SQL reaches the warehouse. It runs against Snowflake/BigQuery for live previews, and dbt_show resolves full Jinja and executes the compiled SQL against the warehouse — so the agent reasons over both the modeled graph and live data without a dbt run."
     },
     {
-      "title": "Fast project orientation",
-      "detail": "An opening 'get me oriented' prompt resolves to a handful of describe/lineage/search calls that surface layers (bronze/silver/gold), grains, PKs, materializations, and failing tests in seconds — work that would otherwise mean reading dozens of files."
+      "title": "A Fivetran capability across the pipeline",
+      "detail": "dbt Wizard is built by Fivetran and operates on dbt Labs' dbt, extending the Fivetran pipeline from move and transform into governed, validated, in-warehouse change. The partnership boundary is explicit: Fivetran builds the agent; dbt Labs owns dbt, the DAG, MetricFlow, and tests."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "Get me oriented in this project — what's the project shape, the layers, the core fact tables and their grain, and is anything failing tests right now?",
+      "intent": "Opening orientation; pull project shape, node counts, doc/test coverage, structure, grain, and test-state from the index instead of reading files.",
+      "invokes": [
+        "mcp__dbt_index__status",
+        "mcp__dbt_index__search",
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Describe fct_orders — I want its grain, primary key, materialization, columns, and current test status.",
+      "intent": "Single-node introspection from the index.",
+      "invokes": [
+        "mcp__dbt_index__describe"
+      ]
+    },
+    {
+      "prompt": "Where is brand_name actually produced and which downstream models consume it?",
+      "intent": "Column-level lineage rather than a text search for the string.",
+      "invokes": [
+        "mcp__dbt_index__lineage",
+        "mcp__dbt_index__search"
+      ]
+    },
+    {
+      "prompt": "Find every model in the silver layer that does a window function over order_id.",
+      "intent": "Regex SQL search scoped to a layer, with DAG context.",
+      "invokes": [
+        "mcp__dbt_index__search"
+      ]
+    },
+    {
+      "prompt": "Show me the full upstream chain for dim_customers, max 3 hops, ref edges only.",
+      "intent": "Depth- and edge-type-controlled lineage traversal.",
+      "invokes": [
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Which gold models depend on stg_products, and what's the grain of each?",
+      "intent": "Downstream traversal with grain decoration per node.",
+      "invokes": [
+        "mcp__dbt_index__lineage",
+        "mcp__dbt_index__describe"
+      ]
     }
   ],
   "tools": [
+    {
+      "name": "mcp__dbt_index__status",
+      "signature": "mcp__dbt_index__status(include?)",
+      "purpose": "Index-backed project orientation in one call: project shape, node counts, doc/test coverage, and a last-run summary — the natural first move when opening an unfamiliar project.",
+      "params": [
+        {
+          "name": "include",
+          "type": "string[]?",
+          "desc": "Optional facets to expand, e.g. coverage, last_run, counts."
+        }
+      ],
+      "returns": "A structured project summary: node counts by type/layer, documentation and test coverage, and the last-run summary (pass/fail counts, timing), all read from the local DuckDB index with no file parsing."
+    },
     {
       "name": "mcp__dbt_index__describe",
       "signature": "mcp__dbt_index__describe(node, include?)",
@@ -71,7 +149,7 @@
           "desc": "Max results to return."
         }
       ],
-      "returns": "Ranked matches, each with the node, the matched column/SQL span, and DAG context: parents, children, grain, materialization, and test status."
+      "returns": "Ranked matches, each with the node, the matched column/SQL span, and DAG context: parents, children, grain, materialization, and test status. DAG context is always attached; there is no separate flag to request it."
     },
     {
       "name": "mcp__dbt_index__lineage",
@@ -107,67 +185,32 @@
       "returns": "An ordered list of nodes/edges per hop with grain and materialization on each node — a scoped subgraph rather than a flat file list."
     }
   ],
-  "examplePrompts": [
-    {
-      "prompt": "Get me oriented in this project — what are the layers, the core fact tables, their grain, and is anything failing tests right now?",
-      "intent": "Opening orientation; pull structure, grain, and test-state from the index instead of reading files.",
-      "invokes": [
-        "mcp__dbt_index__search",
-        "mcp__dbt_index__describe",
-        "mcp__dbt_index__lineage"
-      ]
-    },
-    {
-      "prompt": "Describe fct_orders — I want its grain, primary key, materialization, columns, and current test status.",
-      "intent": "Single-node introspection from the index.",
-      "invokes": [
-        "mcp__dbt_index__describe"
-      ]
-    },
-    {
-      "prompt": "Where is brand_name actually produced and which downstream models consume it?",
-      "intent": "Column-level lineage rather than a text search for the string.",
-      "invokes": [
-        "mcp__dbt_index__lineage",
-        "mcp__dbt_index__search"
-      ]
-    },
-    {
-      "prompt": "Find every model in the silver layer that does a window function over order_id.",
-      "intent": "Regex SQL search scoped to a layer, with DAG context.",
-      "invokes": [
-        "mcp__dbt_index__search"
-      ]
-    },
-    {
-      "prompt": "Show me the full upstream chain for dim_customers, max 3 hops, ref edges only.",
-      "intent": "Depth- and edge-type-controlled lineage traversal.",
-      "invokes": [
-        "mcp__dbt_index__lineage"
-      ]
-    },
-    {
-      "prompt": "Which gold models depend on stg_products, and what's the grain of each?",
-      "intent": "Downstream traversal with grain decoration per node.",
-      "invokes": [
-        "mcp__dbt_index__lineage",
-        "mcp__dbt_index__describe"
-      ]
-    }
-  ],
   "interaction": {
-    "scenario": "An SE opens an unfamiliar customer dbt project mid-demo and asks dbt Wizard for orientation. The goal is to show the wizard answering from the live index — grain, PKs, materializations, test state — rather than reading files.",
-    "userPrompt": "Get me oriented in this project. What layers exist, what are the core fact tables and their grain, and is anything failing tests right now?",
+    "scenario": "An SE opens an unfamiliar customer dbt project mid-demo and asks dbt Wizard for orientation. The goal is to show the wizard answering from the live index — project shape, grain, PKs, materializations, test state — rather than reading files.",
+    "userPrompt": "Get me oriented in this project. What's the project shape, what layers exist, what are the core fact tables and their grain, and is anything failing tests right now?",
     "events": [
       {
         "kind": "user",
         "agent": "user",
-        "body": "Get me oriented in this project. What layers exist, what are the core fact tables and their grain, and is anything failing tests right now?"
+        "body": "Get me oriented in this project. What's the project shape, what layers exist, what are the core fact tables and their grain, and is anything failing tests right now?"
       },
       {
         "kind": "narration",
         "agent": "wizard",
-        "body": "I won't read files for this. I'll query the local DuckDB index, which already knows layers, grain, PKs, materializations, and last-run test state. Starting with a metadata search to map the layers and locate fact tables, then introspecting the core facts, then checking the failing-test surface."
+        "body": "I won't read files for this. I'll query the local DuckDB index, which already knows project shape, layers, grain, PKs, materializations, and last-run test state. Starting with status for the project shape and coverage, then a metadata search to map the layers and locate fact tables, then introspecting the core facts, then checking the failing-test surface."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__status",
+        "toolArgs": "{\"include\":[\"counts\",\"coverage\",\"last_run\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"nodes\":{\"models\":142,\"sources\":18,\"tests\":311,\"exposures\":6},\"layers\":[\"bronze\",\"silver\",\"gold\"],\"coverage\":{\"documented\":0.78,\"tested\":0.84},\"last_run\":{\"status\":\"completed\",\"models_built\":142,\"tests_pass\":303,\"tests_fail\":8}}",
+        "body": "Project shape in one call: 142 models, 18 sources, 311 tests, 6 exposures across bronze/silver/gold. 78% documented, 84% tested. Last run: 8 failing tests."
       },
       {
         "kind": "tool_call",
@@ -180,7 +223,7 @@
         "agent": "wizard",
         "codeLang": "json",
         "code": "{\"hits\":[{\"node\":\"fct_orders\",\"layer\":\"gold\",\"materialization\":\"incremental\",\"grain\":\"one row per order_id\",\"pk\":\"order_id\",\"children\":[\"rpt_revenue_daily\"],\"tests\":{\"pass\":7,\"fail\":1}},{\"node\":\"fct_order_items\",\"layer\":\"gold\",\"materialization\":\"incremental\",\"grain\":\"one row per order_id+product_id\",\"pk\":\"order_item_id\",\"tests\":{\"pass\":5,\"fail\":0}},{\"node\":\"int_orders_enriched\",\"layer\":\"silver\",\"materialization\":\"view\",\"grain\":\"one row per order_id\",\"tests\":{\"pass\":4,\"fail\":0}}],\"layers_seen\":[\"bronze\",\"silver\",\"gold\"]}",
-        "body": "Three layers detected (bronze/silver/gold). Two gold facts surfaced with grain, PK, and test counts inline. fct_orders shows 1 failing test."
+        "body": "Two gold facts surfaced with grain, PK, and test counts inline. fct_orders shows 1 failing test."
       },
       {
         "kind": "narration",
@@ -221,16 +264,21 @@
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "Orientation, pulled live from the project index (no files read):\n\nLayers: bronze, silver, gold.\n\nCore gold facts:\n- fct_orders — incremental, schema analytics_gold, grain one row per order_id (PK order_id). Parents: int_orders_enriched, dim_customers.\n- fct_order_items — incremental, grain one row per order_id + product_id (PK order_item_id), all tests passing.\n\nSilver staging of note: int_orders_enriched — view, grain one row per order_id, tests passing.\n\nFailing test right now: fct_orders.not_null_order_total — 214 null order_total rows. That column flows downstream into rpt_revenue_daily (daily revenue) and into the looker_revenue_dashboard exposure, so the nulls are reaching a customer-facing revenue report. That's the first thing I'd chase. Want me to run an impact report on order_total, or preview the offending rows against the warehouse?"
+        "body": "Orientation, pulled live from the project index (no files read):\n\nProject shape: 142 models, 18 sources, 311 tests, 6 exposures. 78% documented, 84% tested. Last run completed with 8 failing tests.\n\nLayers: bronze, silver, gold.\n\nCore gold facts:\n- fct_orders — incremental, schema analytics_gold, grain one row per order_id (PK order_id). Parents: int_orders_enriched, dim_customers.\n- fct_order_items — incremental, grain one row per order_id + product_id (PK order_item_id), all tests passing.\n\nSilver staging of note: int_orders_enriched — view, grain one row per order_id, tests passing.\n\nFailing test to chase first: fct_orders.not_null_order_total — 214 null order_total rows. That column flows downstream into rpt_revenue_daily (daily revenue) and into the looker_revenue_dashboard exposure, so the nulls are reaching a customer-facing revenue report. Want me to run an impact report on order_total, or preview the offending rows against the warehouse?"
       }
     ]
   },
   "seNotes": [
-    "Lead with the contrast: a general coding agent greps file text for brand_name and infers ref() relationships from strings it happens to open. dbt Wizard answers from a precomputed graph, so one orientation prompt returns grain, PK, materialization, and live test state instead of triggering a dozen file reads.",
-    "Make the 'no file reads' point explicit on stage. The index is a local DuckDB store of models/columns/tests/edges reflecting last-run state; that's why grain and pass/fail tests are known instantly without parsing .sql or .yml.",
-    "Show that results carry graph context inline. After the search hit, do NOT open a file — point out parents, children, grain, and test counts are already in the result payload. That's the whole thesis in one frame.",
-    "Emphasize structured tool calls over shell: all calls are typed mcp__dbt_index__* with named args. search can do BM25 metadata OR regex over compiled SQL, but it's never bare grep — DAG context is always attached.",
-    "Tee up the warehouse-as-one-graph follow-up (warehouse read-only preview or dbt_show with full Jinja) so the audience sees the modeled graph and live data are reachable in the same session without a full dbt run."
-  ],
-  "order": 1
+    "Open on the keynote one-liner: dbt Wizard turns a natural-language business question into a materialized, tested, version-controlled dbt model — without the engineer ever opening a schema browser, writing a JOIN from scratch, or breaking a downstream dashboard. Everything else on this page supports that sentence.",
+    "Run the 'Why dbt Wizard' narrative as three problems no general agent solves: archaeology (onboarding, blast-radius, source discovery — days of grepping collapsed to minutes on a live DAG), silent failures (grain mismatches, key-coverage gaps, downstream contract breaks caught before SQL is written), and answer vs asset (a general agent gives SQL in a chat window, dbt Wizard writes a versioned, testable, reviewable model into the repo).",
+    "Name the four costs it eliminates: onboarding time, silent wrong results, broken downstream consumers, and one-off query debt. Tie each to a problem above — archaeology kills onboarding time, silent failures kill silent wrong results and broken consumers, answer-vs-asset kills one-off query debt.",
+    "Frame the surfaces accurately: dbt Wizard runs as a terminal-based CLI and inside the dbt platform (Public Beta for dbt platform customers with dbt Copilot plus Beta enabled), with an 'Ask for approval' mode that keeps a human in the loop. Pick the surface that matches your audience and say which one you're demoing.",
+    "Cite the outcome honestly: design-partner results report a 15-20% incident reduction on average, and individual results vary. Use it as a directional proof point, not a guarantee.",
+    "Make the 'no file reads' point explicit on stage. The index is a local DuckDB store of models/columns/tests/edges reflecting last-run state; status returns project shape, node counts, doc/test coverage, and a last-run summary in one call, which is why grain and pass/fail tests are known instantly without parsing .sql or .yml.",
+    "Emphasize structured tool calls over shell: all 17 calls are typed mcp__dbt_index__* with named args (status, search, describe, lineage, impact, changeset, warehouse, dbt_show, dbt_build, dbt_run, dbt_compile, dbt_test, dbt_parse, diff, context, metrics, timings). search can do BM25 metadata OR regex over compiled SQL, but it's never bare grep — DAG context is always attached.",
+    "Tee up the warehouse-as-one-graph follow-up (warehouse read-only preview or dbt_show with full Jinja) so the audience sees the modeled graph and live data are reachable in the same session without a full dbt run.",
+    "Frame dbt Wizard as a Fivetran capability that elevates the whole pipeline — move plus transform plus data quality, alongside Fivetran's stewardship of Great Expectations — not a standalone dbt add-on. Fivetran builds the agent; dbt Labs owns dbt, the DAG, MetricFlow, and tests.",
+    "Confirm the exact supported-warehouse list for the release you are demoing rather than asserting 'and others'. Name only the warehouses verified for that release (e.g. Snowflake, BigQuery) and check current docs before claiming coverage.",
+    "Provenance: every functional detail on this page is sourced from dbt Wizard's own description of its capabilities. Treat that as the reference of record; do not contradict it or invent capabilities beyond it, and check current docs before extending any claim."
+  ]
 }

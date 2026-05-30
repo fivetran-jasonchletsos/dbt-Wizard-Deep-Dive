@@ -2,8 +2,8 @@
   "slug": "agent-architecture",
   "title": "Agent Architecture",
   "tagline": "Parallel subagents with structured handoff",
-  "summary": "dbt Wizard fans a build task out across specialized subagents that run on up to 10 concurrent threads: explorers answer scoped questions in parallel, a worker authors the model with clear file ownership, test_writer fills coverage gaps in schema.yml, and a validation agent verifies before merge. A summary subagent narrates schema understanding during live builds. When the work is done, submit_summary emits a structured handoff payload with task_summary, assumptions, expectations, and breaking-vs-non-breaking impact analysis listing downstream consumers.",
-  "whyDifferent": "A general AI coding agent reads files and greps serially in a single thread, so investigating four upstream models means four sequential file reads with no shared DAG context. dbt Wizard dispatches four explorers at once against the live project index, each returning answers with lineage attached, then composes a worker, test_writer, and validation pass. The handoff is not a prose summary of a diff but a structured impact analysis that names downstream consumers and classifies the change as breaking or non-breaking from the actual DAG.",
+  "summary": "dbt Wizard fans a build task out across specialized subagents that run on up to 10 concurrent threads: explorers answer scoped questions in parallel, a worker authors the model with clear file ownership, test_writer fills coverage gaps in schema.yml, and a validation agent runs the tests and checks before merge. A summary subagent narrates schema understanding during live builds. When the work is done, submit_summary emits a structured handoff payload with task_summary, assumptions, expectations, and breaking-vs-non-breaking impact analysis listing downstream consumers.",
+  "whyDifferent": "A general AI coding agent reads files and greps serially in a single thread, so investigating four upstream models means four sequential file reads with no shared DAG context. dbt Wizard dispatches four explorers at once against the live project index, each returning answers with lineage attached, then composes a worker, a test_writer that authors the tests, and a validation pass that runs them. The handoff is not a prose summary of a diff but a structured impact analysis that names downstream consumers and classifies the change as breaking or non-breaking from the actual DAG.",
   "capabilities": [
     {
       "title": "Parallel explorer fan-out",
@@ -19,7 +19,7 @@
     },
     {
       "title": "Validation gate before merge",
-      "detail": "After any model edit, a validation subagent is spawned automatically: it runs SQL checks, dbt run --defer, and a prod-vs-dev comparison so nothing merges without verification."
+      "detail": "After any model edit, a validation subagent is spawned automatically: it runs the authored tests, a deferred dbt run against production state, and a prod-vs-dev comparison so nothing merges without verification. test_writer authors the tests; validation runs them."
     },
     {
       "title": "Summary narrator on live builds",
@@ -44,7 +44,7 @@
         {
           "name": "mode",
           "type": "enum",
-          "desc": "metadata (BM25) or sql_regex against raw/compiled SQL."
+          "desc": "bm25 (metadata) or regex against raw/compiled SQL."
         },
         {
           "name": "scope",
@@ -79,13 +79,18 @@
     },
     {
       "name": "mcp__dbt_index__dbt_run",
-      "signature": "mcp__dbt_index__dbt_run(select, defer?, state?, full_refresh?)",
-      "purpose": "Structured dbt run call (not a shell string) invoked by the validation subagent, typically with --defer --state for cost-efficient dev builds. Auto-refreshes the index on success.",
+      "signature": "mcp__dbt_index__dbt_run(select?, exclude?, defer?, state?, full_refresh?)",
+      "purpose": "Structured dbt run call (not a shell string) invoked by the validation subagent, typically with defer and a state pointer for cost-efficient dev builds. Auto-refreshes the index on success.",
       "params": [
         {
           "name": "select",
           "type": "string",
           "desc": "dbt node selector (e.g. int_orders_enriched+)."
+        },
+        {
+          "name": "exclude",
+          "type": "string",
+          "desc": "Optional node selector to exclude from the run."
         },
         {
           "name": "defer",
@@ -95,7 +100,7 @@
         {
           "name": "state",
           "type": "string",
-          "desc": "Path to the deferred state manifest (production artifacts)."
+          "desc": "Path to the deferred state manifest/artifacts (e.g. target-prod/)."
         },
         {
           "name": "full_refresh",
@@ -109,7 +114,7 @@
   "examplePrompts": [
     {
       "prompt": "Add a support-ticket count column to int_orders_enriched and make sure nothing downstream breaks.",
-      "intent": "Trigger the full fan-out: explorers scope the join, worker authors, test_writer covers, validation verifies, submit_summary hands off.",
+      "intent": "Trigger the full fan-out: explorers scope the join, worker authors, test_writer covers, validation runs the tests, submit_summary hands off.",
       "invokes": [
         "mcp__dbt_index__search",
         "mcp__dbt_index__describe",
@@ -132,14 +137,14 @@
     },
     {
       "prompt": "Build int_orders_enriched and its downstream with deferred state so I don't rebuild the whole project.",
-      "intent": "Validation subagent runs a cost-efficient deferred dev build.",
+      "intent": "Validation subagent runs a cost-efficient deferred dev build against production state.",
       "invokes": [
         "mcp__dbt_index__dbt_run"
       ]
     },
     {
       "prompt": "Write the missing schema.yml tests for the new columns on int_orders_enriched.",
-      "intent": "Invoke test_writer to close coverage gaps.",
+      "intent": "Invoke test_writer to author the tests that close coverage gaps.",
       "invokes": [
         "mcp__dbt_index__describe"
       ]
@@ -153,7 +158,7 @@
     }
   ],
   "interaction": {
-    "scenario": "An SE asks dbt Wizard to add a support-ticket count to a silver model. The task fans out across parallel explorers, a worker authors the change, test_writer adds coverage, validation verifies with a deferred build, and submit_summary hands off a structured impact payload.",
+    "scenario": "An SE asks dbt Wizard to add a support-ticket count to a silver model. The task fans out across parallel explorers, a worker authors the change, test_writer authors coverage, validation runs the tests with a deferred build, and submit_summary hands off a structured impact payload.",
     "userPrompt": "Add a support_ticket_count column to int_orders_enriched sourced from the tickets staging model, and make sure nothing downstream breaks.",
     "events": [
       {
@@ -176,13 +181,13 @@
         "kind": "tool_call",
         "agent": "explorer",
         "toolName": "mcp__dbt_index__search",
-        "toolArgs": "{\"query\":\"tickets staging support\",\"mode\":\"metadata\",\"scope\":\"silver\",\"limit\":5}"
+        "toolArgs": "{\"query\":\"tickets staging support\",\"mode\":\"bm25\",\"scope\":\"silver\",\"limit\":5}"
       },
       {
         "kind": "tool_call",
         "agent": "explorer",
         "toolName": "mcp__dbt_index__search",
-        "toolArgs": "{\"query\":\"ref\\\\('int_orders_enriched'\\\\)\",\"mode\":\"sql_regex\",\"limit\":20}"
+        "toolArgs": "{\"query\":\"ref\\\\('int_orders_enriched'\\\\)\",\"mode\":\"regex\",\"limit\":20}"
       },
       {
         "kind": "tool_result",
@@ -219,7 +224,7 @@
       {
         "kind": "narration",
         "agent": "test_writer",
-        "body": "New column needs coverage. Adding not_null on support_ticket_count plus a dbt_utils.accepted_range floor of 0 (counts can't be negative), and confirming the order_id PK test still holds at the new grain."
+        "body": "New column needs coverage. Authoring not_null on support_ticket_count plus a dbt_utils.accepted_range floor of 0 (counts can't be negative), and confirming the order_id PK test still holds at the new grain."
       },
       {
         "kind": "code",
@@ -229,18 +234,18 @@
       },
       {
         "kind": "narration",
-        "agent": "verification",
-        "body": "Edit detected. Spawning validation: deferred dev build of int_orders_enriched and its downstream against production state, then a prod-vs-dev row reconciliation on order_id."
+        "agent": "validation",
+        "body": "Edit detected. Spawning validation: I run the tests test_writer just authored, then a deferred dev build of int_orders_enriched and its downstream against production state, then a prod-vs-dev row reconciliation on order_id."
       },
       {
         "kind": "tool_call",
-        "agent": "verification",
+        "agent": "validation",
         "toolName": "mcp__dbt_index__dbt_run",
-        "toolArgs": "{\"select\":\"int_orders_enriched+\",\"defer\":true,\"state\":\"./prod-artifacts\"}"
+        "toolArgs": "{\"select\":\"int_orders_enriched+\",\"defer\":true,\"state\":\"target-prod/\"}"
       },
       {
         "kind": "tool_result",
-        "agent": "verification",
+        "agent": "validation",
         "codeLang": "json",
         "body": "Build OK. Row count unchanged vs prod (1 order_id per row), no nulls, downstream compiles clean.",
         "code": "{\"status\":\"success\",\"nodes_built\":1,\"deferred\":3,\"rows\":482911,\"prod_vs_dev_row_delta\":0,\"new_col_nulls\":0}"
@@ -260,9 +265,9 @@
   "seNotes": [
     "The headline demo moment is the fan-out: show three explorer tool_calls dispatched at once, not sequentially. Emphasize up to 10 concurrent threads versus a general agent's single serial read loop.",
     "submit_summary is structured, not prose. Call out the four fields by name (task_summary, assumptions, expectations, impact) and the breaking-vs-non-breaking classification with named downstream consumers pulled from the DAG.",
-    "The validation subagent is automatic after any edit, not something the SE invokes. It runs dbt_run with --defer --state so the dev build is cost-efficient and doesn't rebuild the whole project.",
+    "The validation subagent is automatic after any edit, not something the SE invokes. test_writer authors the tests; validation runs them and runs dbt_run with defer against a production state path (target-prod/) so the dev build is cost-efficient and doesn't rebuild the whole project.",
     "Workers have clear file ownership; pair this with parallel execution to explain how authoring one model and exploring another happen simultaneously without collisions.",
-    "The summary narrator is specific to live builds and explains grain and join decisions as the build proceeds. Do not confuse it with submit_summary, which is the final structured handoff payload emitted at the end."
-  ],
-  "order": 10
+    "The summary narrator is specific to live builds and explains grain and join decisions as the build proceeds. Do not confuse it with submit_summary, which is the final structured handoff payload emitted at the end.",
+    "Dev-vs-prod comparison uses deferred state (defer plus a state path to the production manifest/artifacts), not a dbt Cloud token. The search tool always attaches DAG context, so there is no flag to request it."
+  ]
 }

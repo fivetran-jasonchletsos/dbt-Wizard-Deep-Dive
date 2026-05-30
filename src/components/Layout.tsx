@@ -88,6 +88,7 @@ export default function Layout() {
         >
           <span>Fivetran SE field reference</span>
           <span>dbt Wizard runs on dbt Labs dbt</span>
+          <span style={{ color: 'var(--text-soft)' }}>Details sourced from dbt Wizard</span>
         </div>
       </aside>
 

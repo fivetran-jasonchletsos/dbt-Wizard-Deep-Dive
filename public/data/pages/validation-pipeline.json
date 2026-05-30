@@ -2,24 +2,24 @@
   "slug": "validation-pipeline",
   "title": "Validation Pipeline",
   "tagline": "Auto-spawned checks on every model edit",
-  "summary": "After any model edit, dbt Wizard automatically spawns a structured validation subagent without being asked. That subagent runs a structured checklist: a read-only SQL sanity check against the warehouse, a deferred dbt run (dbt run --defer --state), schema tests, and a production-vs-development state diff. It reports pass/fail with concrete row-count deltas and flags breaking changes before the change ever reaches a pull request.",
-  "whyDifferent": "A general AI coding agent edits a file and stops; verification is on you, and \"it compiles\" is the most it can claim because it only reads text and greps. dbt Wizard's validation pipeline is automatic and operates on live state: it actually builds the changed model with deferral against production, queries the warehouse to compare row counts and grain, and runs the model's tests. The result is a grounded pass/fail with deltas and a breaking-vs-non-breaking verdict, not an optimistic guess from static text.",
+  "summary": "After any model edit, dbt Wizard automatically spawns a validation subagent without being asked. That subagent runs a structured checklist: a read-only SQL sanity check against the warehouse, a deferred dbt run (dbt run --defer --state target-prod/), schema tests, and a production-vs-development row comparison. Per dbt Wizard's own description, the prod-vs-dev comparison resolves the production side from dbt Cloud or deferred state (--defer --state). It reports pass/fail with concrete row-count deltas and flags breaking changes before the change ever reaches a pull request. This is a validated, in-warehouse change landing as part of the Fivetran pipeline that moved the data and the dbt project that transforms it.",
+  "whyDifferent": "A general AI coding agent edits a file and stops; verification is on you, and \"it compiles\" is the most it can claim because it only reads text and greps. dbt Wizard's validation pipeline is automatic and operates on live state: it actually builds the changed model with deferral against production artifacts, queries the warehouse to compare row counts and grain, and runs the model's tests. The result is a grounded pass/fail with deltas and a breaking-vs-non-breaking verdict, not an optimistic guess from static text.",
   "capabilities": [
     {
       "title": "Auto-spawn on edit, not on request",
-      "detail": "The moment a model's SQL or schema.yml changes, the validation subagent is spawned by the workflow itself. The SE never types \"now validate\" — the guardrail fires whether or not they remember to ask."
+      "detail": "The moment a model's SQL or schema.yml changes, the validation subagent is spawned by the workflow itself. The SE never types \"now validate\" — the guardrail fires whether or not they remember to ask. The fixed sequence is a SQL check, then dbt run --defer, then a prod-vs-dev row comparison, then impact analysis."
     },
     {
       "title": "Deferred build against production state",
-      "detail": "Runs dbt run --defer --state so only the changed model (and what it needs) builds, with unbuilt upstreams resolved from the production manifest. Fast and cheap dev validation without a full project run."
+      "detail": "Runs dbt run --defer --state target-prod/ so only the changed model (and what it needs) builds, with unbuilt upstreams resolved from the production manifest and artifacts. Fast and cheap dev validation without a full project run. Deferral works against dbt Cloud or deferred state (--defer --state); both are valid sources for the production artifacts."
     },
     {
       "title": "Live SQL sanity check",
-      "detail": "Executes read-only SQL directly against the warehouse to confirm the edited model returns rows, holds its declared grain, and has no unexpected NULLs in key columns before trusting the build."
+      "detail": "Read-only by design: the warehouse tool issues SELECT-only statements and rejects DML/DDL, so the validation subagent can confirm the edited model returns rows, holds its declared grain, and has no unexpected NULLs in key columns before trusting the build. Enforcement is at the tool boundary, which parses and rejects any statement that is not a SELECT."
     },
     {
-      "title": "Prod-vs-dev row-count diff",
-      "detail": "Compares the freshly built dev relation against the production relation and surfaces concrete deltas: total rows added/removed, columns added/dropped, and grain shifts that signal a fan-out or a dropped join."
+      "title": "Prod-vs-dev row comparison",
+      "detail": "Compares the freshly built dev relation against the production relation, with the production side resolved from dbt Cloud or deferred state (--defer --state target-prod/), and surfaces concrete deltas: total rows added/removed, columns added/dropped, and grain shifts that signal a fan-out or a dropped join."
     },
     {
       "title": "Schema test execution",
@@ -28,100 +28,6 @@
     {
       "title": "Breaking-change verdict before the PR",
       "detail": "Synthesizes results into a clear breaking vs non-breaking call with the impacted downstream consumers named, handed off via submit_summary so the SE sees the risk before opening the pull request."
-    }
-  ],
-  "tools": [
-    {
-      "name": "mcp__dbt_index__dbt_run",
-      "signature": "mcp__dbt_index__dbt_run(select, defer?, state?, full_refresh?, vars?)",
-      "purpose": "Structured dbt run invocation used by the validation subagent to build the changed model in dev with deferral, resolving unbuilt upstreams from a production/state manifest. Auto-refreshes the local index on success.",
-      "params": [
-        {
-          "name": "select",
-          "type": "string",
-          "desc": "Node selector, e.g. int_orders_enriched+ to build the model and its downstream."
-        },
-        {
-          "name": "defer",
-          "type": "boolean",
-          "desc": "When true, unselected upstreams resolve from --state instead of being built."
-        },
-        {
-          "name": "state",
-          "type": "string",
-          "desc": "Path to the production manifest used for deferral comparison."
-        },
-        {
-          "name": "full_refresh",
-          "type": "boolean",
-          "desc": "Force a full rebuild of incremental models when needed."
-        }
-      ],
-      "returns": "Per-node run status (success/error), rows affected, execution time, and an updated index epoch."
-    },
-    {
-      "name": "mcp__dbt_index__diff",
-      "signature": "mcp__dbt_index__diff(node, against?, dimensions?, primary_key?)",
-      "purpose": "Compares local/dev state against production for the edited node, the core prod-vs-dev safety check in the gate. Requires a dbt Cloud token or deferred state.",
-      "params": [
-        {
-          "name": "node",
-          "type": "string",
-          "desc": "The model to compare, e.g. fct_orders."
-        },
-        {
-          "name": "against",
-          "type": "string",
-          "desc": "Target to compare to: prod or a named state."
-        },
-        {
-          "name": "primary_key",
-          "type": "string",
-          "desc": "Key column(s) used to align rows for added/removed/changed detection."
-        }
-      ],
-      "returns": "Row-count delta (added/removed/changed), column-set delta, grain change flag, and a breaking/non-breaking classification."
-    },
-    {
-      "name": "mcp__dbt_index__warehouse",
-      "signature": "mcp__dbt_index__warehouse(sql, limit?, timeout?)",
-      "purpose": "Live read-only SQL against the warehouse used for the SQL sanity check: confirm the dev relation returns rows, holds grain, and has no NULLs in keys. No dbt run required.",
-      "params": [
-        {
-          "name": "sql",
-          "type": "string",
-          "desc": "Read-only SELECT to execute (writes are rejected)."
-        },
-        {
-          "name": "limit",
-          "type": "integer",
-          "desc": "Optional row cap for preview safety."
-        }
-      ],
-      "returns": "Result rows as structured JSON plus column types and row count."
-    },
-    {
-      "name": "mcp__dbt_index__dbt_test",
-      "signature": "mcp__dbt_index__dbt_test(select, defer?, state?, store_failures?)",
-      "purpose": "Runs the schema and data tests attached to the edited model as part of the validation gate, returning per-test outcomes rather than assertions.",
-      "params": [
-        {
-          "name": "select",
-          "type": "string",
-          "desc": "Test or model selector, e.g. int_orders_enriched."
-        },
-        {
-          "name": "store_failures",
-          "type": "boolean",
-          "desc": "Persist failing rows to a table for inspection."
-        },
-        {
-          "name": "defer",
-          "type": "boolean",
-          "desc": "Resolve untested upstreams from state during the test run."
-        }
-      ],
-      "returns": "Per-test pass/fail/warn status with failing row counts and the assertion that failed."
     }
   ],
   "examplePrompts": [
@@ -155,7 +61,7 @@
     },
     {
       "prompt": "Did the validation agent flag any row-count delta between dev and prod for dim_customers after my edit?",
-      "intent": "Inspect the prod-vs-dev diff produced by the auto-spawned validation subagent.",
+      "intent": "Inspect the prod-vs-dev row comparison produced by the auto-spawned validation subagent.",
       "invokes": [
         "mcp__dbt_index__diff",
         "mcp__dbt_index__warehouse"
@@ -178,7 +84,7 @@
     }
   ],
   "interaction": {
-    "scenario": "An SE adds a support_ticket_count column to int_orders_enriched via a left join to stg_support_tickets. They do not ask for validation — the pipeline auto-spawns the validation subagent, which runs the SQL sanity check, a deferred build, tests, and a prod-vs-dev diff, and catches a fan-out that would have doubled order rows.",
+    "scenario": "An SE adds a support_ticket_count column to int_orders_enriched via a left join to stg_support_tickets. They do not ask for validation — the pipeline auto-spawns the validation subagent, which runs the SQL sanity check, a deferred build, a prod-vs-dev row comparison, tests, and an impact analysis, and catches a fan-out that would have doubled order rows.",
     "userPrompt": "Add a support_ticket_count column to int_orders_enriched joined from stg_support_tickets.",
     "events": [
       {
@@ -189,72 +95,72 @@
       {
         "kind": "narration",
         "agent": "worker",
-        "body": "Editing int_orders_enriched: joining stg_support_tickets on order_id and adding count(ticket_id) as support_ticket_count. Writing the SQL now."
+        "body": "Editing int_orders_enriched. The model's own upstream is stg_orders enriched in a CTE; I'll left join stg_support_tickets on order_id and surface support_ticket_count. Writing the SQL now."
       },
       {
         "kind": "code",
         "agent": "worker",
         "codeLang": "sql",
-        "code": "select\n  o.*,\n  t.support_ticket_count\nfrom {{ ref('int_orders_enriched') }} o\nleft join {{ ref('stg_support_tickets') }} t\n  on o.order_id = t.order_id"
+        "code": "with enriched as (\n  select * from {{ ref('stg_orders') }}\n)\nselect\n  o.*,\n  t.ticket_id,\n  t.support_ticket_count\nfrom enriched o\nleft join {{ ref('stg_support_tickets') }} t\n  on o.order_id = t.order_id"
       },
       {
         "kind": "narration",
         "agent": "wizard",
-        "body": "Model edit detected. Auto-spawning the validation subagent — no manual trigger needed. Running SQL sanity check, then deferred build, tests, and prod-vs-dev diff."
+        "body": "Model edit detected. Auto-spawning the validation subagent — no manual trigger needed. The gate runs in a fixed order: SQL sanity check, then dbt run --defer, then a prod-vs-dev row comparison, then impact analysis. Starting now."
       },
       {
         "kind": "tool_call",
-        "agent": "verification",
+        "agent": "validation",
         "toolName": "mcp__dbt_index__warehouse",
-        "toolArgs": "{\"sql\":\"select count(*) as rows, count(distinct order_id) as distinct_orders from dev.int_orders_enriched\",\"limit\":1}"
+        "toolArgs": "{\"sql\":\"select count(*) as row_count, count(distinct order_id) as distinct_orders from dev.int_orders_enriched\",\"limit\":1}"
       },
       {
         "kind": "tool_result",
-        "agent": "verification",
+        "agent": "validation",
         "codeLang": "json",
         "body": "Grain check: rows exceed distinct order_id — fan-out detected.",
-        "code": "{\"rows\": 24180, \"distinct_orders\": 18412}"
+        "code": "{\"row_count\": 24180, \"distinct_orders\": 18412}"
       },
       {
         "kind": "narration",
-        "agent": "verification",
+        "agent": "validation",
         "body": "Grain broke: 24,180 rows vs 18,412 distinct order_id. The join is not 1:1 — stg_support_tickets has multiple tickets per order, so the left join fans out. Continuing the gate to quantify against prod."
       },
       {
         "kind": "tool_call",
-        "agent": "verification",
+        "agent": "validation",
         "toolName": "mcp__dbt_index__dbt_run",
-        "toolArgs": "{\"select\":\"int_orders_enriched\",\"defer\":true,\"state\":\"prod-manifest\"}"
+        "toolArgs": "{\"select\":\"int_orders_enriched\",\"defer\":true,\"state\":\"target-prod/\"}"
       },
       {
         "kind": "tool_result",
-        "agent": "verification",
+        "agent": "validation",
         "codeLang": "json",
         "body": "Build succeeded but row count rose vs prod baseline.",
         "code": "{\"node\":\"int_orders_enriched\",\"status\":\"success\",\"rows\":24180,\"exec_seconds\":7.4,\"deferred_upstreams\":3}"
       },
       {
         "kind": "tool_call",
-        "agent": "verification",
+        "agent": "validation",
         "toolName": "mcp__dbt_index__diff",
-        "toolArgs": "{\"node\":\"int_orders_enriched\",\"against\":\"prod\",\"primary_key\":\"order_id\"}"
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"state\":\"target-prod/\",\"defer\":true,\"primary_key\":\"order_id\"}"
       },
       {
         "kind": "tool_result",
-        "agent": "verification",
+        "agent": "validation",
         "codeLang": "json",
         "body": "Breaking: row count up 31%, grain changed.",
-        "code": "{\"rows_added\":5768,\"rows_removed\":0,\"rows_changed\":0,\"columns_added\":[\"support_ticket_count\"],\"grain_changed\":true,\"classification\":\"breaking\"}"
+        "code": "{\"rows_added\":5768,\"rows_removed\":0,\"rows_changed\":0,\"columns_added\":[\"ticket_id\",\"support_ticket_count\"],\"grain_changed\":true,\"classification\":\"breaking\"}"
       },
       {
         "kind": "tool_call",
-        "agent": "verification",
+        "agent": "validation",
         "toolName": "mcp__dbt_index__dbt_test",
-        "toolArgs": "{\"select\":\"int_orders_enriched\",\"defer\":true,\"state\":\"prod-manifest\"}"
+        "toolArgs": "{\"select\":\"int_orders_enriched\",\"defer\":true,\"state\":\"target-prod/\"}"
       },
       {
         "kind": "tool_result",
-        "agent": "verification",
+        "agent": "validation",
         "codeLang": "json",
         "body": "unique test on order_id now fails.",
         "code": "{\"unique_int_orders_enriched_order_id\":\"fail (5768 dupes)\",\"not_null_order_id\":\"pass\",\"tests_run\":4,\"failed\":1}"
@@ -262,23 +168,23 @@
       {
         "kind": "narration",
         "agent": "wizard",
-        "body": "The validation gate failed before any PR. The raw join fanned out int_orders_enriched from 18,412 to 24,180 rows and broke the order_id unique test. Rewriting as a pre-aggregated CTE so support_ticket_count is computed per order before the join, preserving one row per order_id."
+        "body": "The validation gate failed before any PR. The raw join fanned out int_orders_enriched from 18,412 to 24,180 rows and broke the order_id unique test. Rewriting with a pre-aggregated tickets CTE so support_ticket_count is computed per order before the join, preserving one row per order_id."
       },
       {
         "kind": "code",
         "agent": "worker",
         "codeLang": "sql",
-        "code": "with tickets as (\n  select order_id, count(ticket_id) as support_ticket_count\n  from {{ ref('stg_support_tickets') }}\n  group by 1\n)\nselect\n  o.*,\n  coalesce(t.support_ticket_count, 0) as support_ticket_count\nfrom {{ ref('int_orders_enriched') }} o\nleft join tickets t on o.order_id = t.order_id"
+        "code": "with enriched as (\n  select * from {{ ref('stg_orders') }}\n),\ntickets as (\n  select order_id, count(ticket_id) as support_ticket_count\n  from {{ ref('stg_support_tickets') }}\n  group by 1\n)\nselect\n  o.*,\n  coalesce(t.support_ticket_count, 0) as support_ticket_count\nfrom enriched o\nleft join tickets t on o.order_id = t.order_id"
       },
       {
         "kind": "tool_call",
-        "agent": "verification",
+        "agent": "validation",
         "toolName": "mcp__dbt_index__diff",
-        "toolArgs": "{\"node\":\"int_orders_enriched\",\"against\":\"prod\",\"primary_key\":\"order_id\"}"
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"state\":\"target-prod/\",\"defer\":true,\"primary_key\":\"order_id\"}"
       },
       {
         "kind": "tool_result",
-        "agent": "verification",
+        "agent": "validation",
         "codeLang": "json",
         "body": "Non-breaking: same row count, one new column.",
         "code": "{\"rows_added\":0,\"rows_removed\":0,\"rows_changed\":18412,\"columns_added\":[\"support_ticket_count\"],\"grain_changed\":false,\"classification\":\"non-breaking\"}"
@@ -286,16 +192,121 @@
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "First attempt was caught automatically — the validation subagent fired the moment I edited the model, not because you asked. The naive join fanned out int_orders_enriched to 24,180 rows and failed the order_id unique test (a breaking change that would have doubled downstream order counts in fct_orders and dim_customers). I rewrote it with a per-order pre-aggregation. Re-validation: grain preserved at 18,412 rows, support_ticket_count added, all 4 tests pass, prod-vs-dev classified non-breaking. Safe to open the PR. Handing off via submit_summary with the impact analysis."
+        "body": "First attempt was caught automatically — the validation subagent fired the moment I edited the model, not because you asked. The naive join fanned out int_orders_enriched to 24,180 rows and failed the order_id unique test (a breaking change that would have doubled downstream order counts in fct_orders and dim_customers). I rewrote it with a per-order pre-aggregated CTE. Re-validation: grain preserved at 18,412 rows, support_ticket_count added, all 4 tests pass, prod-vs-dev classified non-breaking. This is a validated, in-warehouse change landing as part of the Fivetran pipeline that moved the data and the dbt project that transforms it. Safe to open the PR. Handing off via submit_summary with the impact analysis."
       }
     ]
   },
   "seNotes": [
     "Lead with \"you didn't ask for it.\" The demo lands hardest when you visibly skip any validate command and the subagent spawns on its own the instant the model is edited — that auto-guardrail is the differentiator versus a general coding agent.",
-    "Show the deferred build: dbt run --defer --state means only the changed model builds while upstreams resolve from the prod manifest, so validation is fast and cheap even on a large project. SEs will ask about cost; this is the answer.",
-    "The strongest moment is the prod-vs-dev diff catching a grain/fan-out change with a real row-count delta (e.g. 18,412 to 24,180). That is something a file-reading agent cannot know because it never queries the warehouse.",
-    "Make clear the verdict is breaking vs non-breaking with named downstream consumers, delivered before the PR via submit_summary — not after CI fails. The value is shifting failure left.",
-    "All four steps are grounded actions: warehouse runs read-only SQL, dbt_run actually builds, dbt_test actually runs the tests, diff actually compares state. Stress to a technical audience that nothing here is the model guessing from text."
+    "Walk the fixed sequence per dbt Wizard's own description: SQL check, then dbt run --defer, then prod-vs-dev row comparison, then impact analysis. The order is the gate, not a suggestion.",
+    "Show the deferred build: dbt run --defer --state target-prod/ means only the changed model builds while upstreams resolve from the production manifest and artifacts, so validation is fast and cheap even on a large project. SEs will ask about cost and auth — say deferral can resolve production state from dbt Cloud or from deferred state (--defer --state). Both are valid; don't claim dbt Cloud is required and don't claim it is forbidden.",
+    "The strongest moment is the prod-vs-dev row comparison catching a grain/fan-out change with a real row-count delta (e.g. 18,412 to 24,180). That is something a file-reading agent cannot know because it never queries the warehouse.",
+    "Make clear the verdict is breaking vs non-breaking with named downstream consumers, delivered before the PR via submit_summary — not after CI fails. The value is shifting failure left, which maps to the reported 15-20% average incident reduction from design-partner results (individual results vary).",
+    "All four steps are grounded actions: the warehouse tool runs read-only SELECT-only SQL and rejects DML/DDL, dbt_run actually builds, dbt_test actually runs the tests, and diff actually compares dev against production via dbt Cloud or deferred state. dbt_show is the complement — it executes the compiled SQL and returns real rows, so it catches valid-but-wrong-data bugs that reading compiled SQL alone would not. Stress to a technical audience that nothing here is the model guessing from text.",
+    "Position it as part of the Fivetran pipeline: Fivetran moves the data, dbt transforms it, and dbt Wizard validates the in-warehouse change before it ships — one governed path from source to reviewed PR."
   ],
-  "order": 7
+  "tools": [
+    {
+      "name": "mcp__dbt_index__dbt_run",
+      "signature": "mcp__dbt_index__dbt_run(select?, exclude?, defer?, state?, full_refresh?)",
+      "purpose": "Structured dbt run invocation used by the validation subagent to build the changed model in dev with deferral, resolving unbuilt upstreams from the production manifest and artifacts. Auto-refreshes the local index on success.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "Node selector, e.g. int_orders_enriched+ to build the model and its downstream."
+        },
+        {
+          "name": "defer",
+          "type": "boolean",
+          "desc": "When true, unselected upstreams resolve from --state instead of being built."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Path to the production manifest/artifacts used for deferral, e.g. target-prod/."
+        },
+        {
+          "name": "full_refresh",
+          "type": "boolean",
+          "desc": "Force a full rebuild of incremental models when needed."
+        }
+      ],
+      "returns": "Per-node run status (success/error), rows affected, execution time, and an updated index epoch."
+    },
+    {
+      "name": "mcp__dbt_index__diff",
+      "signature": "mcp__dbt_index__diff(node, state?, defer?, primary_key?, columns?, dimensions?)",
+      "purpose": "Compares dev state against production for the edited node, the core prod-vs-dev safety check in the gate. The production side is resolved from dbt Cloud or deferred state (--defer --state target-prod/) pointed at the production manifest/artifacts.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "The model to compare, e.g. fct_orders."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Path to the production manifest/artifacts to compare against, e.g. target-prod/."
+        },
+        {
+          "name": "defer",
+          "type": "boolean",
+          "desc": "Resolve unbuilt nodes from the production state during comparison."
+        },
+        {
+          "name": "primary_key",
+          "type": "string",
+          "desc": "Key column(s) used to align rows for added/removed/changed detection."
+        }
+      ],
+      "returns": "Row-count delta (added/removed/changed), column-set delta, grain change flag, and a breaking/non-breaking classification."
+    },
+    {
+      "name": "mcp__dbt_index__warehouse",
+      "signature": "mcp__dbt_index__warehouse(sql, limit?, timeout_s?)",
+      "purpose": "Live SQL against the warehouse used for the SQL sanity check: confirm the dev relation returns rows, holds grain, and has no NULLs in keys. Read-only by design: the tool issues SELECT-only statements and rejects DML/DDL, enforced by parsing each statement at the tool boundary. No dbt run required.",
+      "params": [
+        {
+          "name": "sql",
+          "type": "string",
+          "desc": "Read-only SELECT to execute; any non-SELECT statement (DML/DDL) is rejected."
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "desc": "Optional row cap for preview safety."
+        },
+        {
+          "name": "timeout_s",
+          "type": "integer",
+          "desc": "Optional query timeout in seconds."
+        }
+      ],
+      "returns": "Result rows as structured JSON plus column types and row count."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_test",
+      "signature": "mcp__dbt_index__dbt_test(select?, defer?, state?)",
+      "purpose": "Runs the schema and data tests attached to the edited model as part of the validation gate, returning per-test outcomes rather than assertions.",
+      "params": [
+        {
+          "name": "select",
+          "type": "string",
+          "desc": "Test or model selector, e.g. int_orders_enriched."
+        },
+        {
+          "name": "defer",
+          "type": "boolean",
+          "desc": "Resolve untested upstreams from state during the test run."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Path to the production manifest/artifacts for deferral, e.g. target-prod/."
+        }
+      ],
+      "returns": "Per-test pass/fail/warn status with failing row counts and the assertion that failed."
+    }
+  ]
 }

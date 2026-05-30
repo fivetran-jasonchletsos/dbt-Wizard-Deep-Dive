@@ -2,7 +2,7 @@
   "slug": "warehouse-integration",
   "title": "Warehouse Integration",
   "tagline": "Live read-only warehouse previews and dev-vs-prod diffs",
-  "summary": "dbt Wizard runs read-only SQL directly against the connected warehouse (Snowflake, BigQuery, and others) so an SE can preview model output and sanity-check row counts or suspicious values without a full dbt run. dbt_show resolves Jinja end to end, including ref(), source(), and macros, and executes the compiled SQL on the warehouse to show what a model would actually return. diff compares local or deferred dev state against production state so a change can be validated for row-count and value drift before the PR merges.",
+  "summary": "dbt Wizard runs read-only SQL directly against the connected warehouse (Snowflake, BigQuery, and others) so an SE can preview model output and sanity-check row counts or suspicious values without a full dbt run. dbt_show resolves Jinja end to end, including ref(), source(), and macros, and executes the compiled SQL on the warehouse to return the rows a model would actually produce, which catches valid-but-wrong-data bugs that compiled SQL alone would not reveal. diff compares local dev state against production state so a change can be validated for row-count and value drift before the PR merges; per dbt Wizard's own description, it requires either dbt Cloud or deferred state (--defer --state) pointed at a production manifest.",
   "whyDifferent": "A general AI coding agent can only read the .sql file and the YAML config; it never sees a single row of data, cannot resolve a ref() chain into runnable SQL, and has no idea whether a model currently passes or what it returns. dbt Wizard executes against the live warehouse, so it answers from real rows: actual counts, actual distinct brand_name values, actual dev-vs-prod deltas. It distinguishes \"the SQL parses\" from \"the SQL returns the right data,\" which file-reading and grep fundamentally cannot do.",
   "capabilities": [
     {
@@ -11,109 +11,23 @@
     },
     {
       "title": "Full Jinja resolution on the warehouse",
-      "detail": "mcp__dbt_index__dbt_show compiles {{ ref() }}, {{ source() }}, and custom macros into executable SQL and runs it on the warehouse, returning the exact rows a model would emit. This catches macro and ref-chain bugs that compiled-SQL inspection alone would miss."
+      "detail": "mcp__dbt_index__dbt_show compiles {{ ref() }}, {{ source() }}, and custom macros into executable SQL and runs it on the warehouse, returning the exact rows a model would emit. Because it executes rather than just inspecting, it surfaces valid-but-wrong-data bugs (for example a join that should coalesce to 0 but returns null) that reading the compiled SQL would not reveal."
     },
     {
       "title": "Dev vs production drift detection",
-      "detail": "mcp__dbt_index__diff compares local or deferred dev state against the production relation, surfacing row-count deltas and changed values. It turns a blind PR merge into an evidence-backed decision."
+      "detail": "mcp__dbt_index__diff compares dev state against the production relation, surfacing row-count deltas and changed values. Per dbt Wizard's own reference, diff requires either dbt Cloud or deferred state (--defer --state) pointed at a production manifest to resolve the prod side. Either path turns a blind PR merge into an evidence-backed decision."
     },
     {
-      "title": "Read-only safety guarantee",
-      "detail": "warehouse queries are read-only by contract, so SEs can demo live data exploration against a customer-like warehouse without any write risk to the target schemas."
+      "title": "Read-only by design",
+      "detail": "The warehouse tool issues SELECT-only statements and rejects DML/DDL, so SEs can demo live data exploration against a customer-like warehouse without write risk to the target schemas. Enforcement is at the tool layer: non-SELECT statements are rejected before they reach the warehouse, and the connection should also use a least-privilege read role as defense in depth."
     },
     {
       "title": "Deferred-state cost efficiency",
-      "detail": "diff and validation builds support --defer --state, reusing production upstreams instead of rebuilding the whole DAG, so dev validation stays cheap even on large projects."
+      "detail": "diff and validation builds support --defer --state pointed at a production manifest, reusing production upstreams instead of rebuilding the whole DAG, so dev validation stays cheap even on large projects. Deferred state is one of the two ways diff resolves the prod side; dbt Cloud state is the other."
     },
     {
       "title": "Automatic post-edit validation",
       "detail": "after any model edit the validation subagent automatically runs SQL checks, dbt run --defer, and a prod-vs-dev comparison via diff, so warehouse-backed verification happens without you asking."
-    }
-  ],
-  "tools": [
-    {
-      "name": "mcp__dbt_index__warehouse",
-      "signature": "mcp__dbt_index__warehouse(sql, row_limit?, timeout_s?)",
-      "purpose": "Execute read-only SQL directly against the connected warehouse for live data previews, row counts, and value spot-checks without running dbt.",
-      "params": [
-        {
-          "name": "sql",
-          "type": "string",
-          "desc": "Read-only SELECT statement to run against the warehouse."
-        },
-        {
-          "name": "row_limit",
-          "type": "int",
-          "desc": "Optional cap on rows returned for fast previews (e.g. 100)."
-        },
-        {
-          "name": "timeout_s",
-          "type": "int",
-          "desc": "Optional query timeout in seconds."
-        }
-      ],
-      "returns": "Result set as columns + rows with row count, plus the warehouse the query ran against. Read-only; rejects DML/DDL."
-    },
-    {
-      "name": "mcp__dbt_index__dbt_show",
-      "signature": "mcp__dbt_index__dbt_show(node, limit?, vars?, inline?)",
-      "purpose": "Resolve a model's full Jinja ({{ ref() }}, {{ source() }}, macros) into executable SQL and run it on the warehouse to return the rows the model would emit.",
-      "params": [
-        {
-          "name": "node",
-          "type": "string",
-          "desc": "Model name or selector to compile and preview (e.g. int_orders_enriched)."
-        },
-        {
-          "name": "limit",
-          "type": "int",
-          "desc": "Optional row limit for the preview."
-        },
-        {
-          "name": "vars",
-          "type": "object",
-          "desc": "Optional dbt vars to inject during compilation."
-        },
-        {
-          "name": "inline",
-          "type": "string",
-          "desc": "Optional ad-hoc SQL/Jinja to compile and run instead of a named node."
-        }
-      ],
-      "returns": "Compiled SQL plus the executed result rows from the warehouse, with the resolved ref/source relation names."
-    },
-    {
-      "name": "mcp__dbt_index__diff",
-      "signature": "mcp__dbt_index__diff(node, state?, defer?, keys?, columns?)",
-      "purpose": "Compare local or deferred dev state against production state for a node to surface row-count and value drift before merging a PR.",
-      "params": [
-        {
-          "name": "node",
-          "type": "string",
-          "desc": "Model to compare across dev and prod (e.g. fct_orders)."
-        },
-        {
-          "name": "state",
-          "type": "string",
-          "desc": "Path to production manifest/state for deferred comparison."
-        },
-        {
-          "name": "defer",
-          "type": "bool",
-          "desc": "Reuse production upstreams instead of rebuilding the full DAG."
-        },
-        {
-          "name": "keys",
-          "type": "array",
-          "desc": "Primary key column(s) used to align dev and prod rows."
-        },
-        {
-          "name": "columns",
-          "type": "array",
-          "desc": "Optional subset of columns to compare for value drift."
-        }
-      ],
-      "returns": "Row-count delta (added/removed/changed), per-column value differences, and a breaking/non-breaking assessment. Requires dbt Cloud token or deferred state."
     }
   ],
   "examplePrompts": [
@@ -139,8 +53,8 @@
       ]
     },
     {
-      "prompt": "Compare my dev build of dim_customers against production and tell me if anything broke before I open the PR.",
-      "intent": "Dev-vs-prod drift validation for safe PR merge.",
+      "prompt": "Compare my dev build of dim_customers against production using deferred state at target-prod/ and tell me if anything broke before I open the PR.",
+      "intent": "Dev-vs-prod drift validation for safe PR merge using deferred state.",
       "invokes": [
         "mcp__dbt_index__diff"
       ]
@@ -197,7 +111,7 @@
         "kind": "tool_call",
         "agent": "wizard",
         "toolName": "mcp__dbt_index__warehouse",
-        "toolArgs": "{\"sql\":\"select count(*) as null_count from (select order_id, support_ticket_count from analytics_dev.silver.int_orders_enriched) where support_ticket_count is null\",\"row_limit\":1}"
+        "toolArgs": "{\"sql\":\"select count(*) as null_count from analytics_dev.silver.int_orders_enriched where support_ticket_count is null\",\"limit\":1}"
       },
       {
         "kind": "tool_result",
@@ -208,13 +122,13 @@
       {
         "kind": "narration",
         "agent": "wizard",
-        "body": "3,174 orders have a null instead of 0. That's a left-join that should coalesce to 0. This is a data-correctness issue, not a syntax one, so it would never surface from reading the file. Now I'll diff dev vs prod keyed on order_id to confirm the rest of the change is additive."
+        "body": "3,174 orders have a null instead of 0. That's a left join that should coalesce to 0. This is a data-correctness issue, not a syntax one, so it would never surface from reading the file. Now I'll diff dev vs prod keyed on order_id to confirm the rest of the change is additive, using deferred state at target-prod/ to resolve the prod side."
       },
       {
         "kind": "tool_call",
         "agent": "wizard",
         "toolName": "mcp__dbt_index__diff",
-        "toolArgs": "{\"node\":\"int_orders_enriched\",\"defer\":true,\"state\":\"prod-artifacts/\",\"keys\":[\"order_id\"],\"columns\":[\"order_id\",\"customer_id\",\"order_total\"]}"
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"defer\":true,\"state\":\"target-prod/\",\"primary_key\":[\"order_id\"],\"columns\":[\"order_id\",\"customer_id\",\"order_total\"]}"
       },
       {
         "kind": "tool_result",
@@ -224,7 +138,7 @@
       },
       {
         "kind": "narration",
-        "agent": "verification",
+        "agent": "validation",
         "body": "Validation subagent confirms: row count identical (48,210), zero changed/added/removed rows on order_id, customer_id, and order_total. The only structural change is the added support_ticket_count column."
       },
       {
@@ -236,11 +150,96 @@
   },
   "seNotes": [
     "Lead the demo with the file-vs-warehouse contrast: a general coding agent says 'the SQL looks fine,' dbt Wizard says '3,174 rows are null in the actual warehouse.' That gap is the whole pitch.",
-    "dbt_show is not dbt compile: it resolves Jinja AND executes on the warehouse, so it catches macro/ref bugs that produce valid-but-wrong SQL. Call that out explicitly.",
-    "diff needs a dbt Cloud token or deferred state (--defer --state); have a prod manifest staged before you demo or the prod side won't resolve.",
-    "Stress that warehouse queries are read-only by contract. This is what lets you run live exploration against a customer-like warehouse with no write risk.",
-    "Emphasize deferred state for cost: diff and validation reuse prod upstreams instead of rebuilding the DAG, which matters on large Snowflake/BigQuery projects where a full rebuild is expensive.",
+    "dbt_show is not dbt compile: it resolves Jinja AND executes the compiled SQL on the warehouse, so it returns real rows and catches valid-but-wrong-data bugs that valid compiled SQL would still hide. Call that out explicitly.",
+    "Per dbt Wizard's own reference, diff requires either dbt Cloud or deferred state (--defer --state) pointed at a production manifest/artifacts path. Both are valid. In a local CLI demo, use the deferred-state path: stage a prod manifest at target-prod/ before you demo or the prod side won't resolve.",
+    "Stress that the warehouse tool is read-only by design: it issues SELECT-only statements and rejects DML/DDL at the tool layer, and pairing it with a least-privilege read role gives defense in depth. This is what lets you run live exploration against a customer-like warehouse with no write risk.",
+    "Emphasize deferred state for cost: diff and validation reuse prod upstreams instead of rebuilding the DAG, which matters on large Snowflake/BigQuery projects where a full rebuild is expensive. Deferred state is the cost-efficient path; dbt Cloud state is the alternative way to resolve prod.",
     "The validation subagent runs the prod-vs-dev comparison automatically after an edit, so the safe-merge story isn't a manual step the SE has to remember."
   ],
-  "order": 4
+  "tools": [
+    {
+      "name": "mcp__dbt_index__warehouse",
+      "signature": "mcp__dbt_index__warehouse(sql, limit?, timeout_s?)",
+      "purpose": "Execute read-only SQL directly against the connected warehouse for live data previews, row counts, and value spot-checks without running dbt.",
+      "params": [
+        {
+          "name": "sql",
+          "type": "string",
+          "desc": "SELECT-only statement to run against the warehouse. DML/DDL is rejected."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "desc": "Optional cap on rows returned for fast previews (e.g. 100)."
+        },
+        {
+          "name": "timeout_s",
+          "type": "int",
+          "desc": "Optional query timeout in seconds."
+        }
+      ],
+      "returns": "Result set as columns + rows with row count, plus the warehouse the query ran against. Read-only by design: SELECT-only, rejects DML/DDL."
+    },
+    {
+      "name": "mcp__dbt_index__dbt_show",
+      "signature": "mcp__dbt_index__dbt_show(node, limit?, state?)",
+      "purpose": "Resolve a model's full Jinja ({{ ref() }}, {{ source() }}, macros) into executable SQL and run it on the warehouse to return the rows the model would emit, surfacing valid-but-wrong-data bugs that compiled-SQL inspection alone would miss.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Model name or selector to compile and preview (e.g. int_orders_enriched)."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "desc": "Optional row limit for the preview."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Optional path to deferred production state so unbuilt upstreams resolve to prod relations (e.g. target-prod/)."
+        }
+      ],
+      "returns": "Compiled SQL plus the executed result rows from the warehouse, with the resolved ref/source relation names."
+    },
+    {
+      "name": "mcp__dbt_index__diff",
+      "signature": "mcp__dbt_index__diff(node, state?, defer?, primary_key?, columns?, dimensions?)",
+      "purpose": "Compare dev state against production state for a node to surface row-count and value drift before merging a PR. Per dbt Wizard's own reference, diff requires either dbt Cloud or deferred state (--defer --state) pointed at a production manifest.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Model to compare across dev and prod (e.g. fct_orders)."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Path to the production manifest/artifacts for deferred comparison (e.g. target-prod/). Used with defer when not running against dbt Cloud."
+        },
+        {
+          "name": "defer",
+          "type": "bool",
+          "desc": "Reuse production upstreams instead of rebuilding the full DAG. Pairs with state for the deferred-state path; dbt Cloud is the alternative source of prod state."
+        },
+        {
+          "name": "primary_key",
+          "type": "array",
+          "desc": "Primary key column(s) used to align dev and prod rows."
+        },
+        {
+          "name": "columns",
+          "type": "array",
+          "desc": "Optional subset of columns to compare for value drift."
+        },
+        {
+          "name": "dimensions",
+          "type": "array",
+          "desc": "Optional dimensions to group the comparison by."
+        }
+      ],
+      "returns": "Row-count delta (added/removed/changed), per-column value differences, and a breaking/non-breaking assessment. Resolves the prod side via dbt Cloud OR deferred state (--defer --state) pointed at a production manifest; both are valid."
+    }
+  ]
 }

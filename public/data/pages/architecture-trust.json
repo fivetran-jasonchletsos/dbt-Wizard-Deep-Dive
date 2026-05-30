@@ -1,0 +1,292 @@
+{
+  "slug": "architecture-trust",
+  "title": "Architecture, Trust & Prerequisites",
+  "tagline": "How the index is built, what enforces read-only, where dbt Wizard runs, and what data stays in the warehouse",
+  "summary": "dbt Wizard is an agentic coding assistant purpose-built for dbt projects, built by Fivetran and operating on dbt Labs' dbt. It runs as a terminal-based CLI and also inside the dbt platform (Public Beta for dbt platform customers with dbt Copilot and Beta enabled), and an \"Ask for approval\" mode keeps a human in the loop on actions. It works from a local index of project metadata rather than from a copy of warehouse data. The index is a local DuckDB store built from dbt parse and run artifacts: models, columns, tests, edges, and last-run state. Structured dbt_* tool calls refresh it on success, so the metadata the agent reasons over tracks the project. Warehouse row data is fetched on demand through read-only queries for previews and, by design, is not persisted into the index. The warehouse tool issues SELECT-only statements and rejects DML/DDL, with that enforcement living at the tool layer, so dbt Wizard does not write to the warehouse. The connection to the warehouse is the dbt adapter and profile already configured for the project. For dev-versus-prod comparison, diff works with dbt Cloud OR deferred state (--defer --state pointed at a production manifest/artifacts path); present both as valid options rather than implying one is required or forbidden. This reference reflects dbt Wizard's own description of its capabilities. This page is written so an SE can answer trust, data-handling, and provisioning questions in live Q&A. State the design intent confidently, and tell buyers to confirm environment-specific specifics per release and per deployment rather than over-asserting.",
+  "whyDifferent": "A general AI coding agent has no project or warehouse trust model. It reads whatever files are on disk, has no notion of what the project last built, cannot tell you where data lives, and has no enforced boundary on what it would run if it were wired to a warehouse. dbt Wizard is the opposite: it reasons from a structured index of project metadata that refreshes from real dbt artifacts, fetches warehouse rows only through a read-only tool layer that rejects writes by design, reaches the warehouse through the project's existing dbt adapter and profile, keeps a human in the loop through an \"Ask for approval\" mode, and is explicit about its non-goals. It runs where the engineer already works, as a terminal CLI and inside the dbt platform. The difference an enterprise buyer cares about is not capability, it is a defensible answer to where data lives, what can touch the warehouse, and what the agent is not allowed to do.",
+  "capabilities": [
+    {
+      "title": "Runs as a terminal CLI and in the dbt platform",
+      "detail": "dbt Wizard runs as a terminal-based CLI and also inside the dbt platform, where it is in Public Beta for dbt platform customers who have dbt Copilot and Beta enabled. The same agentic capabilities are available in the place the engineer already works, so adoption does not require leaving the existing dbt workflow. Confirm the platform-availability and enablement details per release."
+    },
+    {
+      "title": "Ask-for-approval keeps a human in the loop",
+      "detail": "An 'Ask for approval' mode keeps a human in the loop on the actions dbt Wizard takes. Combined with the validation subagent that auto-fires after every model edit, this means a person still reviews and merges what the agent proposes. State this plainly: the agent assists, it does not act unsupervised."
+    },
+    {
+      "title": "Local metadata index from dbt artifacts",
+      "detail": "The live index is a local DuckDB store of project metadata: models, columns, tests, edges, and last-run state, built from dbt parse and run artifacts. It holds project metadata, not warehouse row data. Because it is derived from artifacts rather than a separate ingestion path, it reflects what the project actually parsed and ran. All 17 MCP tools (mcp__dbt_index__*) are structured calls backed by this local index."
+    },
+    {
+      "title": "Auto-refresh on successful dbt_* calls",
+      "detail": "Structured dbt_* tool calls (dbt_parse, dbt_run, dbt_build, dbt_compile, dbt_test) refresh the index on success, so columns, tests, edges, and last-run state stay current with the project as the agent works. describe and changeset read straight from that refreshed index, which is how an SE can show that the metadata reflects the latest run."
+    },
+    {
+      "title": "Read-only warehouse access by design",
+      "detail": "The warehouse tool issues SELECT-only statements and rejects DML/DDL, with enforcement at the tool layer. dbt Wizard does not write to the warehouse. Row data is fetched on demand for previews and is not persisted into the index. Frame this as design intent and tell buyers to confirm data-handling specifics per deployment."
+    },
+    {
+      "title": "Connection through the dbt adapter and profile",
+      "detail": "dbt Wizard reaches the warehouse through the dbt adapter and profile already configured for the project, so it inherits the project's existing credentials and target rather than introducing a new connection. Supported warehouses include Snowflake, BigQuery and others; confirm the exact list per release."
+    },
+    {
+      "title": "Diff works with dbt Cloud OR deferred state",
+      "detail": "diff compares local dev against production state and can do so either through dbt Cloud or through deferred state (--defer --state pointed at a production manifest/artifacts path, represented as state target-prod/). Both are valid options: do not tell buyers that dbt Cloud is required, and do not tell them it is forbidden. Deferred state reuses production upstreams instead of rebuilding the full DAG, so a dbt Core shop can diff without a Cloud token, while a dbt Cloud customer can lean on Cloud-managed state."
+    },
+    {
+      "title": "Explicit guardrails and non-goals",
+      "detail": "dbt Wizard does not write to the warehouse, enhances the existing semantic layer rather than inventing its own (it works with existing MetricFlow metrics), and cannot diff without production state, whether that state comes from dbt Cloud or a deferred --state path. The validation subagent auto-fires after every model edit, and the 'Ask for approval' mode keeps a human in the loop, but a person still reviews and merges. Stating these limits plainly is what makes the trust story credible in a technical room."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "Where does our data actually live when I use this? Does the index hold our warehouse rows, or just metadata?",
+      "intent": "Buyer wants a clear data-residency answer before approving a pilot.",
+      "invokes": [
+        "mcp__dbt_index__describe"
+      ]
+    },
+    {
+      "prompt": "Prove the index is current. Show me what fct_orders looks like in the index right now and what changed in the project since this morning.",
+      "intent": "SE demonstrating that the index reflects last-run metadata, not a stale snapshot.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__changeset"
+      ]
+    },
+    {
+      "prompt": "Can this thing ever write to our warehouse, drop a table, or run an UPDATE? What stops it, and does anything need my approval first?",
+      "intent": "Security reviewer probing the read-only posture, where it is enforced, and the human-in-the-loop approval gate.",
+      "invokes": [
+        "mcp__dbt_index__warehouse"
+      ]
+    },
+    {
+      "prompt": "We use dbt Core, not dbt Cloud, and we don't want to issue a Cloud token. Can it still diff dev against prod? And if we did have dbt Cloud, does that work too?",
+      "intent": "Buyer confirming diff works through deferred state without a Cloud token, and that dbt Cloud is an equally valid path.",
+      "invokes": [
+        "mcp__dbt_index__diff"
+      ]
+    },
+    {
+      "prompt": "Where does dbt Wizard run, the terminal or the dbt platform, and what do we need enabled to use it inside the platform?",
+      "intent": "Provisioning question about the CLI versus dbt platform Public Beta and its prerequisites.",
+      "invokes": [
+        "mcp__dbt_index__status"
+      ]
+    },
+    {
+      "prompt": "What is this not allowed to do? Give me the non-goals so I can take them to my security team.",
+      "intent": "SE arming a champion with the explicit guardrails list.",
+      "invokes": []
+    }
+  ],
+  "interaction": {
+    "scenario": "An SE is in a joint Fivetran/dbt Labs technical review. The customer's data platform lead asks the trust question directly: how is the index built, what enforces read-only, and what data leaves the warehouse. The wizard answers honestly, notes where it runs and that an approval gate keeps a human in the loop, and uses describe and changeset to show the index reflects last-run metadata rather than a copy of warehouse rows.",
+    "userPrompt": "Before we pilot this: where does it run, how is the index built, what enforces read-only, and what data actually leaves the warehouse?",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Before we pilot this: where does it run, how is the index built, what enforces read-only, and what data actually leaves the warehouse?"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Four questions, so I'll answer each plainly and then show evidence. On where it runs: dbt Wizard runs as a terminal-based CLI and also inside the dbt platform, where it is in Public Beta for customers who have dbt Copilot and Beta enabled. Either way, an 'Ask for approval' mode keeps a human in the loop on the actions I take. On the index: it is a local DuckDB store of project metadata, models, columns, tests, edges, and last-run state, built from dbt parse and run artifacts. It holds metadata, not your warehouse rows. Let me show you what it actually contains for one model."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"fct_orders\",\"include\":[\"columns\",\"tests\",\"lineage\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"node\":\"fct_orders\",\"source\":\"local_index\",\"last_run_state\":\"success\",\"columns\":[\"order_id\",\"customer_id\",\"order_date\",\"net_revenue\"],\"tests\":[\"unique:order_id\",\"not_null:order_id\",\"relationships:customer_id->dim_customers.customer_id\"],\"lineage\":{\"upstream\":[\"int_orders_enriched\",\"dim_customers\"]},\"row_data\":\"not_stored\"}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Notice what came back: column names, test definitions, lineage edges, and a last_run_state of success, all read from the local index. There are no order rows here. The index records that fct_orders has a net_revenue column and which tests guard it, not the values in that column. Row data is marked not_stored because it is fetched on demand and not persisted into the index."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "On 'is it current,' the index refreshes from dbt artifacts on every successful structured dbt_* call: parse, run, build, compile, test. Let me show the project's recent change activity so you can see the index is tracking real state, not a one-time snapshot."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__changeset",
+        "toolArgs": "{\"since_epoch\":1748476800,\"with_impact\":true}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"since_epoch\":1748476800,\"changed_nodes\":[{\"node\":\"int_orders_enriched\",\"change\":\"sql_modified\",\"last_run_state\":\"success\",\"impact\":\"medium\"},{\"node\":\"fct_orders\",\"change\":\"column_added:support_ticket_count\",\"last_run_state\":\"success\",\"impact\":\"low\"}]}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "That changeset came from the index's tracked state: two nodes changed since this morning, both with a last_run_state of success, and the new support_ticket_count column is already reflected. The index moved because dbt_run succeeded, which is the auto-refresh path."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "On read-only: warehouse access goes through one tool that issues SELECT-only statements and rejects DML/DDL, and that enforcement is at the tool layer. dbt Wizard does not write to your warehouse. Any non-SELECT I tried to send would be refused before it reached your warehouse, and with 'Ask for approval' on, actions surface to a human first."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__warehouse",
+        "toolArgs": "{\"sql\":\"select count(*) as orders from fct_orders\",\"limit\":1}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "code": "{\"warehouse\":\"snowflake\",\"statement\":\"SELECT\",\"columns\":[\"orders\"],\"rows\":[{\"orders\":48210}],\"persisted_to_index\":false}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "That preview returned a count from the warehouse and the result is marked persisted_to_index false: it goes to this conversation, not into the index. The connection itself is your existing dbt adapter and profile, so it inherits the credentials and target your project already uses, no new connection. For dev-versus-prod diffs, you have two valid paths: dbt Cloud, or deferred state with --defer --state pointed at your production manifest path. Use whichever fits your setup; a dbt Core shop can diff without a Cloud token, and a dbt Cloud customer can use Cloud-managed state."
+      },
+      {
+        "kind": "narration",
+        "agent": "validation",
+        "body": "Validation subagent note: this transcript made no write statements and persisted no warehouse rows into the index. The describe and changeset results both read from the local index with last_run_state success. A human still reviews and merges any edit the wizard proposes, and 'Ask for approval' gates the actions taken."
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "To summarize for your pilot: dbt Wizard runs as a terminal CLI and inside the dbt platform (Public Beta with dbt Copilot and Beta enabled), with an 'Ask for approval' mode that keeps a human in the loop. The index is a local DuckDB store of project metadata built from dbt artifacts and refreshed on successful dbt_* calls, so it reflects last-run state, as describe and changeset just showed. Warehouse row data is fetched on demand through a read-only tool that issues SELECT-only statements and rejects DML/DDL at the tool layer, and is not persisted into the index. The warehouse connection is your project's own dbt adapter and profile. diff works either with dbt Cloud or with deferred production state, so you are not forced into Cloud and you are not blocked from it. The non-goals are explicit: it does not write to the warehouse, it enhances the existing semantic layer rather than authoring its own (it works with existing MetricFlow metrics), and it cannot diff without production state from one of those two sources. This reflects dbt Wizard's own description of its capabilities; I would confirm the exact supported-warehouse list, platform enablement, and data-handling specifics for your deployment and dbt version before the pilot, rather than assume them."
+      }
+    ]
+  },
+  "seNotes": [
+    "Answer the trust question in three crisp parts and in this order: index is local metadata from dbt artifacts; read-only is enforced at the tool layer (SELECT-only, rejects DML/DDL); on-demand warehouse rows are not persisted into the index. Buyers remember the structure.",
+    "Say where it runs up front: terminal-based CLI and inside the dbt platform (Public Beta for customers with dbt Copilot and Beta enabled). It meets engineers where they already work, which lowers the adoption objection.",
+    "Lead with the human-in-the-loop story: an 'Ask for approval' mode gates the actions dbt Wizard takes, and the validation subagent auto-fires after every model edit. This is the answer to 'is it acting on our warehouse unsupervised?' The answer is no.",
+    "Use describe and changeset live to prove the index reflects last-run metadata. Showing column and test definitions with a last_run_state of success, and no row values, is more convincing than any slide about data residency.",
+    "On diff prerequisites, present both valid options and do not over-claim either way: diff works with dbt Cloud OR with deferred state (--defer --state pointed at a production manifest/artifacts path). dbt Cloud is not required, and it is not forbidden. A dbt Core shop diffs with no Cloud token; a dbt Cloud customer can use Cloud-managed state. What is required is production state from one of those sources.",
+    "State design intent confidently but add the honest caveat: confirm supported warehouses, platform enablement, semantic-layer availability, and data-handling specifics per release and per deployment. These details reflect dbt Wizard's own description of itself; over-asserting in a CEO-level room is how you lose technical credibility.",
+    "Lead with the non-goals, do not hide them. Does not write to the warehouse; enhances the existing semantic layer rather than authoring its own (works with existing MetricFlow metrics); cannot diff without production state; validation subagent auto-fires after every edit and 'Ask for approval' keeps a human in the loop, but a person still reviews and merges. The explicit limits are what make the rest believable.",
+    "Handle 'does this compete with dbt?' gracefully: it is built by Fivetran on dbt Labs' dbt, not replacing it. It runs the project's own dbt adapter and profile, executes real dbt_* commands, refreshes from dbt artifacts, and works with existing MetricFlow metrics rather than inventing its own semantics. In a joint Fivetran/dbt Labs room, frame it as making the customer's existing dbt investment safer and faster to work in."
+  ],
+  "tools": [
+    {
+      "name": "mcp__dbt_index__describe",
+      "signature": "mcp__dbt_index__describe(node, include?)",
+      "purpose": "Read a node's metadata straight from the local index to show what the index currently holds: columns, tests, lineage, and (when requested) compiled SQL and catalog detail. Useful for demonstrating that the index reflects last-run metadata.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Model, source, or other node to describe (e.g. fct_orders)."
+        },
+        {
+          "name": "include",
+          "type": "string[]",
+          "desc": "Sections to include, e.g. [\"columns\",\"compiled_sql\",\"tests\",\"lineage\",\"catalog\"]."
+        }
+      ],
+      "returns": "The requested metadata sections for the node, read from the local index, reflecting the last successful parse/run."
+    },
+    {
+      "name": "mcp__dbt_index__changeset",
+      "signature": "mcp__dbt_index__changeset(since_epoch?, with_impact?, node_filter?)",
+      "purpose": "Report what changed in the project since a point in time, optionally with impact, read from the index. Shows that the index tracks the project's state over time, including last-run metadata.",
+      "params": [
+        {
+          "name": "since_epoch",
+          "type": "int",
+          "desc": "Epoch timestamp to report changes since."
+        },
+        {
+          "name": "with_impact",
+          "type": "bool",
+          "desc": "Attach severity-rated impact to each changed node."
+        },
+        {
+          "name": "node_filter",
+          "type": "string",
+          "desc": "Optional selector to scope the changeset to specific nodes."
+        }
+      ],
+      "returns": "Changed nodes since the given epoch, optionally with severity-rated impact, sourced from the index's tracked state."
+    },
+    {
+      "name": "mcp__dbt_index__status",
+      "signature": "mcp__dbt_index__status()",
+      "purpose": "Return the project shape from the local index: node counts, doc and test coverage, and a last-run summary. Useful for confirming the index is populated and current before answering trust or provisioning questions.",
+      "params": [],
+      "returns": "Project shape including node counts, doc/test coverage, and a last-run summary, all index-backed."
+    },
+    {
+      "name": "mcp__dbt_index__warehouse",
+      "signature": "mcp__dbt_index__warehouse(sql, limit?, timeout_s?)",
+      "purpose": "Execute read-only SQL against the connected warehouse for on-demand previews. SELECT-only by design; rejects DML/DDL at the tool layer. Results are returned to the caller and not persisted into the index.",
+      "params": [
+        {
+          "name": "sql",
+          "type": "string",
+          "desc": "Read-only SELECT statement to run against the warehouse."
+        },
+        {
+          "name": "limit",
+          "type": "int",
+          "desc": "Optional cap on rows returned for fast previews."
+        },
+        {
+          "name": "timeout_s",
+          "type": "int",
+          "desc": "Optional query timeout in seconds."
+        }
+      ],
+      "returns": "Result set as columns and rows with a row count, plus the warehouse the query ran against. Read-only by design: it issues SELECT-only statements and rejects DML/DDL."
+    },
+    {
+      "name": "mcp__dbt_index__diff",
+      "signature": "mcp__dbt_index__diff(node, state?, defer?, primary_key?, columns?, dimensions?)",
+      "purpose": "Compare dev against production for a node, surfacing row-count and value drift before a merge. Requires production state, which can come from dbt Cloud or from deferred state (--defer --state pointed at a production manifest/artifacts path). Both are valid; neither is the only path.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "Model to compare across dev and prod (e.g. fct_orders)."
+        },
+        {
+          "name": "state",
+          "type": "string",
+          "desc": "Path to the production manifest/artifacts for deferred comparison (e.g. target-prod/). Used for the deferred-state path; dbt Cloud customers can rely on Cloud-managed state instead."
+        },
+        {
+          "name": "defer",
+          "type": "bool",
+          "desc": "Reuse production upstreams via --defer instead of rebuilding the full DAG."
+        },
+        {
+          "name": "primary_key",
+          "type": "string",
+          "desc": "Primary key column used to align dev and prod rows."
+        },
+        {
+          "name": "columns",
+          "type": "string[]",
+          "desc": "Optional subset of columns to compare for value drift."
+        },
+        {
+          "name": "dimensions",
+          "type": "string[]",
+          "desc": "Optional dimensions to group the comparison by."
+        }
+      ],
+      "returns": "Row-count delta and per-column value differences between dev and prod, plus a breaking/non-breaking assessment. Requires production state via dbt Cloud or --defer --state."
+    }
+  ]
+}

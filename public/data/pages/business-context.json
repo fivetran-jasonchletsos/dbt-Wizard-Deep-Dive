@@ -2,8 +2,8 @@
   "slug": "business-context",
   "title": "Business Context",
   "tagline": "Resolve business jargon to canonical dbt models and metrics",
-  "summary": "The context tool performs glossary, fiscal, and org-level business-context search with synonym resolution, mapping fuzzy stakeholder language such as \"annual revenue last fiscal year\" to canonical dbt terms (ARR), the metrics that define them, and the models that materialize them. Every match arrives with DAG-linked models attached, so the wizard can immediately introspect those nodes via describe to confirm grain, primary keys, and test state. Because the context layer indexes the same DuckDB project graph as the rest of the toolset, it proactively surfaces which linked models lack documentation or test coverage and offers to fill those gaps in the same turn.",
-  "whyDifferent": "A general AI coding agent treats \"annual revenue\" as a literal string to grep, returning every file where the substring happens to appear and missing models named arr, mrr, or fct_subscriptions entirely. The context tool resolves the business synonym to its canonical glossary term first, then returns the exact metric and linked models with full DAG context, not text matches. It also knows, from the live index, which of those models are undocumented or untested, so it can close coverage gaps a grep-based agent would never even see.",
+  "summary": "The context tool performs glossary, fiscal, org, and compliance business-context search with synonym resolution, mapping fuzzy stakeholder language such as \"annual revenue last fiscal year\" to canonical dbt terms (ARR), the metrics that define them, and the models that materialize them. Per dbt Wizard's own description of its capabilities, context supports four kinds: glossary, fiscal, org, and compliance, so a regulated term like \"PII\" or a SOX-controlled balance can resolve to the governed model that satisfies it. Every match arrives with DAG-linked models attached, so the wizard can immediately introspect those nodes via describe to confirm grain, primary keys, and test state. Because the context layer indexes the same local DuckDB project graph as the rest of the toolset, it proactively surfaces which linked models lack documentation or test coverage and offers to fill those gaps in the same turn.",
+  "whyDifferent": "A general AI coding agent treats \"annual revenue\" as a literal string to grep, returning every file where the substring happens to appear and missing models named arr, mrr, or fct_subscriptions entirely. The context tool resolves the business synonym to its canonical glossary term first, then returns the exact metric and linked models with full DAG context, not text matches. The same applies to governed language: a compliance-kind lookup maps a regulated concept (PII, SOX-controlled, GDPR-restricted) to the specific model that is supposed to satisfy that control, something a grep-based agent has no way to know. It also knows, from the live index, which of those models are undocumented or untested, so it can close coverage gaps a grep-based agent would never even see.",
   "capabilities": [
     {
       "title": "Synonym and jargon resolution",
@@ -11,7 +11,11 @@
     },
     {
       "title": "Fiscal and org calendar awareness",
-      "detail": "Understands the project's fiscal-year and period definitions so relative time language (\"last fiscal year\", \"current quarter\") resolves to concrete date boundaries tied to the canonical revenue models, not the literal calendar year."
+      "detail": "Understands the project's fiscal-year and period definitions so relative time language (\"last fiscal year\", \"current quarter\") resolves to concrete date boundaries tied to the canonical revenue models, not the literal calendar year. The org kind covers team ownership and domain structure for the same project graph."
+    },
+    {
+      "title": "Compliance term resolution",
+      "detail": "The compliance kind resolves governed and regulatory language (PII, SOX-controlled, GDPR-restricted, HIPAA) to the specific dbt model designated to satisfy that control, with its classification and masking-policy context attached. Resolving a regulated term to its governed model, rather than to a substring match, is what lets the wizard reason about whether the right model is in place and whether it is documented and tested."
     },
     {
       "title": "DAG-linked results",
@@ -19,79 +23,11 @@
     },
     {
       "title": "Proactive doc and test gap surfacing",
-      "detail": "Because the context index sees the same project graph, it flags which linked models have missing descriptions or zero tests at resolution time, turning a definition lookup into an actionable coverage finding."
+      "detail": "Because the context index sees the same project graph, it flags which linked models have missing descriptions or zero tests at resolution time, turning a definition lookup into an actionable coverage finding. For compliance-kind matches this doubles as a control-evidence check: a governed model with no tests is a flagged gap."
     },
     {
       "title": "Gap remediation handoff",
-      "detail": "After surfacing a documentation or test gap, the wizard offers to author the schema.yml docs and tests, optionally spawning a test_writer subagent to fill coverage, then a validation subagent to confirm the new tests pass."
-    }
-  ],
-  "tools": [
-    {
-      "name": "mcp__dbt_index__context",
-      "signature": "mcp__dbt_index__context(query, kind?, resolve_synonyms?, include_linked_models?, surface_gaps?)",
-      "purpose": "Search the glossary, fiscal, and org business-context index with synonym resolution, mapping business jargon to canonical dbt terms, the metrics that define them, and the linked models that materialize them. Optionally flags doc and test coverage gaps on the linked models.",
-      "params": [
-        {
-          "name": "query",
-          "type": "string",
-          "desc": "The business-language phrase to resolve, e.g. \"annual revenue last fiscal year\"."
-        },
-        {
-          "name": "kind",
-          "type": "enum(glossary|fiscal|org|all)",
-          "desc": "Scope the search to a context domain; defaults to all."
-        },
-        {
-          "name": "resolve_synonyms",
-          "type": "boolean",
-          "desc": "Expand the query through the synonym graph (e.g. annual revenue -> ARR) before matching. Default true."
-        },
-        {
-          "name": "include_linked_models",
-          "type": "boolean",
-          "desc": "Attach the canonical metric and linked dbt models to each match. Default true."
-        },
-        {
-          "name": "surface_gaps",
-          "type": "boolean",
-          "desc": "Annotate linked models with missing-doc and zero-test flags. Default true."
-        }
-      ],
-      "returns": "Ranked context matches, each with the canonical term, the matched synonyms, an optional MetricFlow metric, the linked models with their layer and materialization, and per-model doc/test coverage flags."
-    },
-    {
-      "name": "mcp__dbt_index__describe",
-      "signature": "mcp__dbt_index__describe(node, include_columns?, include_tests?, include_lineage?, include_compiled_sql?)",
-      "purpose": "Full node introspection for a model resolved by context: columns, compiled SQL, last-run test results, lineage, catalog types, grain, PK markers, schema, and materialization.",
-      "params": [
-        {
-          "name": "node",
-          "type": "string",
-          "desc": "The dbt node to introspect, e.g. fct_arr or dim_customers."
-        },
-        {
-          "name": "include_columns",
-          "type": "boolean",
-          "desc": "Return the column list with catalog types and PK markers. Default true."
-        },
-        {
-          "name": "include_tests",
-          "type": "boolean",
-          "desc": "Return last-run test results (pass/fail) attached to the node and its columns. Default true."
-        },
-        {
-          "name": "include_lineage",
-          "type": "boolean",
-          "desc": "Return immediate upstream and downstream edges. Default true."
-        },
-        {
-          "name": "include_compiled_sql",
-          "type": "boolean",
-          "desc": "Return the compiled SQL with Jinja resolved. Default false."
-        }
-      ],
-      "returns": "A structured node profile: grain, PK, materialization, schema, columns with types, test results, and lineage edges."
+      "detail": "After surfacing a documentation or test gap, the wizard offers to close it: a test_writer subagent authors the schema.yml docs and tests, then a validation subagent runs dbt_test to confirm the new tests pass."
     }
   ],
   "examplePrompts": [
@@ -120,18 +56,19 @@
       ]
     },
     {
-      "prompt": "Resolve \"active customers in the current quarter\" to a model and tell me its grain.",
-      "intent": "Fiscal-aware resolution plus grain confirmation via introspection.",
+      "prompt": "Which model is our governed PII customer table, and does it have tests proving the masking holds?",
+      "intent": "Use a compliance-kind context lookup to resolve the regulated term PII to its governed model, then introspect for test coverage as control evidence.",
       "invokes": [
         "mcp__dbt_index__context",
         "mcp__dbt_index__describe"
       ]
     },
     {
-      "prompt": "Which gold-layer models that back our revenue metrics are missing descriptions?",
-      "intent": "Use context gap surfacing scoped to revenue-linked gold models.",
+      "prompt": "Resolve \"active customers in the current quarter\" to a model and tell me its grain.",
+      "intent": "Fiscal-aware resolution plus grain confirmation via introspection.",
       "invokes": [
-        "mcp__dbt_index__context"
+        "mcp__dbt_index__context",
+        "mcp__dbt_index__describe"
       ]
     },
     {
@@ -144,11 +81,10 @@
     },
     {
       "prompt": "Resolve \"gross margin\" to its metric and, if the underlying model lacks tests, draft them.",
-      "intent": "Resolve term, surface test gap, hand off to test authoring.",
+      "intent": "Resolve the term and surface the test gap on the linked model, then hand off to a test_writer subagent that authors the schema.yml tests; the validation subagent runs dbt_test afterward.",
       "invokes": [
         "mcp__dbt_index__context",
-        "mcp__dbt_index__describe",
-        "mcp__dbt_index__dbt_test"
+        "mcp__dbt_index__describe"
       ]
     }
   ],
@@ -170,7 +106,7 @@
         "kind": "tool_call",
         "agent": "wizard",
         "toolName": "mcp__dbt_index__context",
-        "toolArgs": "{\"query\":\"annual revenue last fiscal year\",\"kind\":\"all\",\"resolve_synonyms\":true,\"include_linked_models\":true,\"surface_gaps\":true}"
+        "toolArgs": "{\"query\":\"annual revenue last fiscal year\",\"kind\":\"glossary\",\"resolve_synonyms\":true,\"include_linked_models\":true,\"surface_gaps\":true}"
       },
       {
         "kind": "tool_result",
@@ -187,7 +123,7 @@
         "kind": "tool_call",
         "agent": "wizard",
         "toolName": "mcp__dbt_index__describe",
-        "toolArgs": "{\"node\":\"fct_arr\",\"include_columns\":true,\"include_tests\":true,\"include_lineage\":true}"
+        "toolArgs": "{\"node\":\"fct_arr\",\"include\":[\"columns\",\"tests\",\"lineage\",\"catalog\"]}"
       },
       {
         "kind": "tool_result",
@@ -198,7 +134,7 @@
       {
         "kind": "narration",
         "agent": "wizard",
-        "body": "Grain is one row per customer per fiscal_period, PK (customer_id, fiscal_period). It feeds the exec_revenue_dashboard exposure but has zero tests and no docs. That is a trust gap on a board-facing number. I'll offer to close it with a uniqueness test on the compound PK, not_null on arr_usd, and a column description."
+        "body": "Grain is one row per customer per fiscal_period, PK (customer_id, fiscal_period). It feeds the exec_revenue_dashboard exposure but has zero tests and no docs. That is a trust gap on a board-facing number. I'll have a test_writer subagent author a uniqueness test on the compound PK, not_null on arr_usd, and column descriptions, then the validation subagent will run them."
       },
       {
         "kind": "code",
@@ -208,29 +144,82 @@
       },
       {
         "kind": "tool_call",
-        "agent": "verification",
+        "agent": "validation",
         "toolName": "mcp__dbt_index__dbt_test",
-        "toolArgs": "{\"select\":\"fct_arr\",\"defer\":true,\"state\":\"prod\"}"
+        "toolArgs": "{\"select\":\"fct_arr\",\"defer\":true,\"state\":\"target-prod/\"}"
       },
       {
         "kind": "tool_result",
-        "agent": "verification",
+        "agent": "validation",
         "codeLang": "text",
         "code": "PASS unique_combination_of_columns_fct_arr (0 failures)\nPASS not_null_fct_arr_customer_id\nPASS not_null_fct_arr_fiscal_period\nPASS not_null_fct_arr_arr_usd\n4 of 4 tests passed"
       },
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "\"Annual revenue last fiscal year\" resolves to the canonical term ARR (metric: arr), materialized in gold model fct_arr (schema analytics_gold), grain one row per customer per fiscal_period. Last fiscal year for this org is FY2025: 2025-02-01 through 2026-01-31, since the fiscal year ends Jan 31. Trust caveat at resolution time: fct_arr had zero tests and no docs despite feeding the exec_revenue_dashboard exposure. I added a description plus a compound-PK uniqueness test and three not_null tests; all 4 pass against deferred prod state. The model is now documented and covered for the number finance is asking about."
+        "body": "\"Annual revenue last fiscal year\" resolves to the canonical term ARR (metric: arr), materialized in gold model fct_arr (schema analytics_gold), grain one row per customer per fiscal_period. Last fiscal year for this org is FY2025: 2025-02-01 through 2026-01-31, since the fiscal year ends Jan 31. Trust caveat at resolution time: fct_arr had zero tests and no docs despite feeding the exec_revenue_dashboard exposure. A test_writer subagent authored a description plus a compound-PK uniqueness test and three not_null tests; the validation subagent ran them with --defer against the production manifest in target-prod/ and all 4 pass. The model is now documented and covered for the number finance is asking about."
       }
     ]
   },
   "seNotes": [
     "Lead with the jargon-to-canonical gap: type \"annual revenue\" and show context returns the ARR metric and fct_arr model, then point out a grep agent finds nothing because no SQL contains that phrase. That contrast is the whole demo.",
     "Emphasize fiscal awareness. \"Last fiscal year\" resolving to the org's Feb 1 to Jan 31 boundaries (not the calendar year) is a detail finance audiences instantly trust and competitors rarely get right.",
-    "The gap surfacing is automatic, not a separate scan. surface_gaps is on by default, so the undocumented/untested flag comes back in the same context result, in one round trip.",
-    "Show the handoff. Resolving a term and then offering to author docs and tests in the same turn (with test_writer plus the validation subagent running against deferred prod state) is what turns a lookup into governance.",
+    "Show all four context kinds. Per dbt Wizard's own description, context covers glossary, fiscal, org, and compliance. The compliance kind is the one regulated-industry buyers ask about: resolve a term like PII or SOX-controlled to the governed model that is supposed to satisfy it, then check its tests as control evidence.",
+    "The gap surfacing is automatic, not a separate scan. surface_gaps is on by default, so the undocumented/untested flag comes back in the same context result, in one round trip. For a compliance-kind match, a governed model with zero tests is a control-evidence gap, not just a coverage gap.",
+    "Show the handoff. Resolving a term and then closing the gap in the same turn (a test_writer subagent authors the docs and tests, the validation subagent runs dbt_test with --defer against the production manifest in target-prod/) is what turns a lookup into governance.",
     "Stay product-accurate: context resolves and links, describe introspects. It does not run the metric itself. If they want the actual number, that is the metrics tool, which is a different page."
   ],
-  "order": 8
+  "tools": [
+    {
+      "name": "mcp__dbt_index__context",
+      "signature": "mcp__dbt_index__context(query, kind?, resolve_synonyms?, include_linked_models?, surface_gaps?)",
+      "purpose": "Search the glossary, fiscal, org, and compliance business-context index with synonym resolution, mapping business jargon to canonical dbt terms, the metrics that define them, and the linked models that materialize them. The compliance kind resolves governed and regulatory terms (PII, SOX-controlled, GDPR-restricted) to the model designated to satisfy that control. Optionally flags doc and test coverage gaps on the linked models.",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "desc": "The business-language phrase to resolve, e.g. \"annual revenue last fiscal year\" or a governed term like \"customer PII\"."
+        },
+        {
+          "name": "kind",
+          "type": "enum(glossary|fiscal|org|compliance)",
+          "desc": "Scope the search to a context domain: glossary (business terms and synonyms), fiscal (fiscal-year and period boundaries), org (team ownership and domain structure), or compliance (governed and regulatory terms mapped to the models that satisfy them)."
+        },
+        {
+          "name": "resolve_synonyms",
+          "type": "boolean",
+          "desc": "Expand the query through the synonym graph (e.g. annual revenue -> ARR) before matching. Default true."
+        },
+        {
+          "name": "include_linked_models",
+          "type": "boolean",
+          "desc": "Attach the canonical metric and linked dbt models to each match. Default true."
+        },
+        {
+          "name": "surface_gaps",
+          "type": "boolean",
+          "desc": "Annotate linked models with missing-doc and zero-test flags; for compliance-kind matches this serves as a control-evidence check. Default true."
+        }
+      ],
+      "returns": "Ranked context matches, each with the canonical term, the matched synonyms, an optional MetricFlow metric, the linked models with their layer and materialization, and per-model doc/test coverage flags. Compliance-kind matches additionally carry the regulatory classification of the governed model."
+    },
+    {
+      "name": "mcp__dbt_index__describe",
+      "signature": "mcp__dbt_index__describe(node, include?)",
+      "purpose": "Full node introspection for a model resolved by context: columns, compiled SQL, last-run test results, lineage, catalog types, grain, PK markers, schema, and materialization.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "The dbt node to introspect, e.g. fct_arr or dim_customers."
+        },
+        {
+          "name": "include",
+          "type": "string[]",
+          "desc": "Which detail sections to return, e.g. [\"columns\",\"compiled_sql\",\"tests\",\"lineage\",\"catalog\"]. Defaults to the column list, last-run test results, and immediate lineage."
+        }
+      ],
+      "returns": "A structured node profile: grain, PK, materialization, schema, columns with types, test results, and lineage edges."
+    }
+  ]
 }
