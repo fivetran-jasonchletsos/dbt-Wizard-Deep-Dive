@@ -28,6 +28,10 @@
     {
       "title": "Breaking-change verdict before the PR",
       "detail": "Synthesizes results into a clear breaking vs non-breaking call with the impacted downstream consumers named, handed off via submit_summary so the SE sees the risk before opening the pull request."
+    },
+    {
+      "title": "Structural safety, not business-logic correctness",
+      "detail": "The gate proves the change is structurally safe: grain held, row counts accounted for, schema tests pass, and breaking vs non-breaking is classified against production. It does not certify that the business logic is right. A wrong join key, an incorrect filter, or a flawed revenue definition can hold grain and pass every test while still producing wrong numbers, so the gate clears the structural risk and a human reviews and merges. Per dbt Wizard, the validation subagent proves structural safety and a human still reviews and merges; \"ask for approval\" mode keeps that human in the loop. Frame this as the design intent and confirm the exact review and approval behavior per release and deployment."
     }
   ],
   "examplePrompts": [
@@ -192,7 +196,7 @@
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "First attempt was caught automatically — the validation subagent fired the moment I edited the model, not because you asked. The naive join fanned out int_orders_enriched to 19,825 rows and failed the order_id unique test (a breaking change that would have doubled downstream order counts in fct_orders and orders_by_week). I rewrote it with a per-order pre-aggregated CTE. Re-validation: grain preserved at 18,402 rows, support_ticket_count added, all 4 tests pass, prod-vs-dev classified non-breaking. This is a validated, in-warehouse change landing as part of the Fivetran pipeline that moved the data and the dbt project that transforms it. Safe to open the PR. Handing off via submit_summary with the impact analysis."
+        "body": "First attempt was caught automatically — the validation subagent fired the moment I edited the model, not because you asked. The naive join fanned out int_orders_enriched to 19,825 rows and failed the order_id unique test (a breaking change that would have doubled downstream order counts in fct_orders and orders_by_week). I rewrote it with a per-order pre-aggregated CTE. Re-validation: grain preserved at 18,402 rows, support_ticket_count added, all 4 tests pass, prod-vs-dev classified non-breaking. The gate proves the change is structurally safe; it does not certify the business logic, so this still goes to you to review and merge. This is a validated, in-warehouse change landing as part of the Fivetran pipeline that moved the data and the dbt project that transforms it. Safe to open the PR. Handing off via submit_summary with the impact analysis."
       }
     ]
   },
@@ -203,126 +207,7 @@
     "The strongest moment is the prod-vs-dev row comparison catching a grain/fan-out change with a real row-count delta (e.g. 18,402 to 19,825). That is something a file-reading agent cannot know because it never queries the warehouse.",
     "Make clear the verdict is breaking vs non-breaking with named downstream consumers, delivered before the PR via submit_summary — not after CI fails. The value is shifting failure left, which maps to the reported 15-20% average incident reduction from design-partner results (individual results vary).",
     "All four steps are grounded actions: the warehouse tool runs read-only SELECT-only SQL and rejects DML/DDL, dbt_run actually builds, dbt_test actually runs the tests, and diff actually compares dev against production via dbt Cloud or deferred state. dbt_show is the complement — it executes the compiled SQL and returns real rows, so it catches valid-but-wrong-data bugs that reading compiled SQL alone would not. Stress to a technical audience that nothing here is the model guessing from text.",
-    "Position it as part of the Fivetran pipeline: Fivetran moves the data, dbt transforms it, and dbt Wizard validates the in-warehouse change before it ships — one governed path from source to reviewed PR."
-  ],
-  "tools": [
-    {
-      "name": "mcp__dbt_index__dbt_run",
-      "signature": "mcp__dbt_index__dbt_run(select?, exclude?, defer?, state?, full_refresh?)",
-      "purpose": "Structured dbt run invocation used by the validation subagent to build the changed model in dev with deferral, resolving unbuilt upstreams from the production manifest and artifacts. Auto-refreshes the local index on success.",
-      "params": [
-        {
-          "name": "select",
-          "type": "string",
-          "desc": "Node selector, e.g. int_orders_enriched+ to build the model and its downstream."
-        },
-        {
-          "name": "defer",
-          "type": "boolean",
-          "desc": "When true, unselected upstreams resolve from --state instead of being built."
-        },
-        {
-          "name": "state",
-          "type": "string",
-          "desc": "Path to the production manifest/artifacts used for deferral, e.g. target-prod/."
-        },
-        {
-          "name": "full_refresh",
-          "type": "boolean",
-          "desc": "Force a full rebuild of incremental models when needed."
-        }
-      ],
-      "returns": "Per-node run status (success/error), rows affected, execution time, and an updated index epoch."
-    },
-    {
-      "name": "mcp__dbt_index__diff",
-      "signature": "mcp__dbt_index__diff(node, state?, defer?, primary_key?, columns?, dimensions?)",
-      "purpose": "Compares dev state against production for the edited node, the core prod-vs-dev safety check in the gate. The production side is resolved from dbt Cloud or deferred state (--defer --state target-prod/) pointed at the production manifest/artifacts.",
-      "params": [
-        {
-          "name": "node",
-          "type": "string",
-          "desc": "The model to compare, e.g. fct_orders."
-        },
-        {
-          "name": "state",
-          "type": "string",
-          "desc": "Path to the production manifest/artifacts to compare against, e.g. target-prod/."
-        },
-        {
-          "name": "defer",
-          "type": "boolean",
-          "desc": "Resolve unbuilt nodes from the production state during comparison."
-        },
-        {
-          "name": "primary_key",
-          "type": "string",
-          "desc": "Key column(s) used to align rows for added/removed/changed detection."
-        }
-      ],
-      "returns": "Row-count delta (added/removed/changed), column-set delta, grain change flag, and a breaking/non-breaking classification."
-    },
-    {
-      "name": "mcp__dbt_index__warehouse",
-      "signature": "mcp__dbt_index__warehouse(sql, limit?, timeout_s?)",
-      "purpose": "Live SQL against the warehouse used for the SQL sanity check: confirm the dev relation returns rows, holds grain, and has no NULLs in keys. Read-only by design: the tool issues SELECT-only statements and rejects DML/DDL, enforced by parsing each statement at the tool boundary. No dbt run required.",
-      "params": [
-        {
-          "name": "sql",
-          "type": "string",
-          "desc": "Read-only SELECT to execute; any non-SELECT statement (DML/DDL) is rejected."
-        },
-        {
-          "name": "limit",
-          "type": "integer",
-          "desc": "Optional row cap for preview safety."
-        },
-        {
-          "name": "timeout_s",
-          "type": "integer",
-          "desc": "Optional query timeout in seconds."
-        }
-      ],
-      "returns": "Result rows as structured JSON plus column types and row count."
-    },
-    {
-      "name": "mcp__dbt_index__dbt_test",
-      "signature": "mcp__dbt_index__dbt_test(select?, defer?, state?)",
-      "purpose": "Runs the schema and data tests attached to the edited model as part of the validation gate, returning per-test outcomes rather than assertions.",
-      "params": [
-        {
-          "name": "select",
-          "type": "string",
-          "desc": "Test or model selector, e.g. int_orders_enriched."
-        },
-        {
-          "name": "defer",
-          "type": "boolean",
-          "desc": "Resolve untested upstreams from state during the test run."
-        },
-        {
-          "name": "state",
-          "type": "string",
-          "desc": "Path to the production manifest/artifacts for deferral, e.g. target-prod/."
-        }
-      ],
-      "returns": "Per-test pass/fail/warn status with failing row counts and the assertion that failed."
-    }
-  ],
-  "stats": [
-    {
-      "value": "automatic",
-      "label": "fires after every edit"
-    },
-    {
-      "count": 4,
-      "value": "4",
-      "label": "validation steps",
-      "sub": "SQL check, run --defer, prod vs dev, impact"
-    },
-    {
-      "value": "pre-merge",
-      "label": "catches regressions"
-    }
+    "Position it as part of the Fivetran pipeline: Fivetran moves the data, dbt transforms it, and dbt Wizard validates the in-warehouse change before it ships — one governed path from source to reviewed PR.",
+    "State the correctness boundary plainly so a skeptic can't catch you overclaiming: the gate proves STRUCTURAL safety — grain held, row counts reconciled, schema tests pass, breaking vs non-breaking classified against production — but it does NOT certify business-logic correctness. A wrong join key, the wrong filter, or a mis-stated revenue definition can hold grain and pass every test while still producing wrong numbers. That is exactly why dbt Wizard keeps a human in the loop: the validation subagent proves structural safety, then a human reviews and merges, and \"ask for approval\" mode enforces that pause. Use this to strengthen, not soften, the story — the gate kills the whole class of structural regressions automatically and frees the human review to focus on whether the logic is right. Frame review and approval specifics as design intent and confirm them per release and deployment."
   ]
 }

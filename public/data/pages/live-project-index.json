@@ -32,90 +32,10 @@
     {
       "title": "Structured tool calls, not grep",
       "detail": "All of these tools are MCP calls (mcp__dbt_index__*) backed by the local DuckDB index. Results are typed records, not raw text scrapes, so they are deterministic and machine-consumable for follow-on tools."
-    }
-  ],
-  "tools": [
-    {
-      "name": "mcp__dbt_index__status",
-      "signature": "mcp__dbt_index__status(include?)",
-      "purpose": "Fastest first call for project orientation: returns the project shape from the index — node counts, documentation and test coverage, and the last-run summary — in a single structured call. Use it to size up an unfamiliar project before drilling into any specific node.",
-      "params": [
-        {
-          "name": "include",
-          "type": "string[]",
-          "desc": "Optional facets to expand, e.g. [\"node_counts\",\"coverage\",\"last_run\"]. Defaults to the core project shape and health rollup."
-        }
-      ],
-      "returns": "A structured project summary: node counts by type and layer, documentation coverage, test coverage, and the last-run summary (timestamp, totals, pass/fail counts) — all read from the index, no re-run."
     },
     {
-      "name": "mcp__dbt_index__describe",
-      "signature": "mcp__dbt_index__describe(node, include?)",
-      "purpose": "Full node introspection from the index: columns and catalog data types, compiled SQL, current test results, lineage, grain, PK markers, schema, and materialization — selected via include, all in one structured call, no file reads.",
-      "params": [
-        {
-          "name": "node",
-          "type": "string",
-          "desc": "The model/source/seed/snapshot node to introspect, e.g. 'fct_orders' or 'model.shop.int_orders_enriched'."
-        },
-        {
-          "name": "include",
-          "type": "string[]",
-          "desc": "Which facets to return, e.g. [\"columns\",\"compiled_sql\",\"tests\",\"lineage\",\"catalog\"]. Grain, PK markers, schema, and materialization are always returned."
-        }
-      ],
-      "returns": "A structured node record: grain, PK marker(s), schema, materialization, plus whichever of columns (with types and PK markers), compiled SQL, last-run test results (pass/fail + counts), catalog data types, and immediate lineage edges were requested in include."
-    },
-    {
-      "name": "mcp__dbt_index__search",
-      "signature": "mcp__dbt_index__search(query, mode?, scope?, limit?)",
-      "purpose": "Find nodes and columns touching a concept. Runs either BM25 over metadata/descriptions or regex against SQL, returning every hit with its DAG context attached. DAG context is always included.",
-      "params": [
-        {
-          "name": "query",
-          "type": "string",
-          "desc": "Search term (BM25) or regex pattern (regex mode), e.g. 'refund' or 'sum\\\\(.*amount.*\\\\)'."
-        },
-        {
-          "name": "mode",
-          "type": "string",
-          "desc": "'bm25' for metadata/description ranking, or 'regex' for pattern matching against SQL. Default 'bm25'."
-        },
-        {
-          "name": "scope",
-          "type": "string",
-          "desc": "Optional selector to narrow the search, e.g. a layer or tag selector like 'tag:finance' or a path/layer scope."
-        },
-        {
-          "name": "limit",
-          "type": "integer",
-          "desc": "Max results to return. Default 25."
-        }
-      ],
-      "returns": "Ranked list of matching nodes/columns, each with relevance score (BM25) or match snippet (regex) plus DAG context: layer, materialization, immediate upstream/downstream edges."
-    },
-    {
-      "name": "mcp__dbt_index__changeset",
-      "signature": "mcp__dbt_index__changeset(since_epoch?, with_impact?, node_filter?)",
-      "purpose": "Epoch-based diff of what changed in the index since a given epoch — nodes, columns, and tests added/removed/modified — with optional impact attached.",
-      "params": [
-        {
-          "name": "since_epoch",
-          "type": "integer",
-          "desc": "Epoch (int) to diff against. Defaults to the last flush."
-        },
-        {
-          "name": "with_impact",
-          "type": "boolean",
-          "desc": "Attach blast-radius impact for each change. Default false."
-        },
-        {
-          "name": "node_filter",
-          "type": "string",
-          "desc": "Optional node or selector to scope the diff, e.g. 'stg_products' or 'tag:finance'."
-        }
-      ],
-      "returns": "A structured delta: changed nodes, added/dropped/retyped columns, test additions/removals and status flips since the epoch, optionally with impact lists."
+      "title": "Built from artifacts the project already produces, refreshes on success",
+      "detail": "The index is derived from standard dbt parse/run artifacts — manifest, catalog, and run_results — so the first cold-start index needs no separate ingestion step; it reads what the project already emits. It reflects the last run rather than live warehouse state, and the structured dbt_* calls (dbt_run, dbt_build, dbt_test, dbt_parse, dbt_compile) auto-refresh it on success. SEs should treat the index as last-run-accurate and confirm refresh behavior per release and deployment."
     }
   ],
   "examplePrompts": [
@@ -256,7 +176,8 @@
     "Lead the per-node demo with grain and PK. A general agent has to read schema.yml and infer; the index returns grain ('one row per X') and PK markers as first-class fields — that lands instantly with data engineers.",
     "search has two modes worth showing back to back: BM25 over metadata for concept discovery ('find refunds'), then regex against compiled SQL for surgical column-usage hunts ('where is brand_name actually referenced'). Both attach DAG context to every hit automatically.",
     "changeset is epoch-based, diffing since since_epoch — frame it as 'what moved since my last build,' including test status flips, not a git diff of files. Add with_impact to attach blast radius to each change.",
-    "Reinforce that none of this is file reading or grep: it's structured MCP calls (mcp__dbt_index__*) against a local DuckDB index, so results are typed, deterministic, and chainable into impact/lineage/warehouse follow-ups. A natural status -> search -> describe sequence is the cleanest onboarding narrative for the index."
+    "Reinforce that none of this is file reading or grep: it's structured MCP calls (mcp__dbt_index__*) against a local DuckDB index, so results are typed, deterministic, and chainable into impact/lineage/warehouse follow-ups. A natural status -> search -> describe sequence is the cleanest onboarding narrative for the index.",
+    "Set index-currency expectations to defuse the skeptic. The index reflects the last dbt run, not live warehouse state, and it refreshes on a successful dbt_* call (dbt_run, dbt_build, dbt_test, dbt_parse, dbt_compile). The first cold-start index derives from the dbt parse/run artifacts the project already produces — manifest, catalog, run_results — so there is no separate ingestion or load step to stand up before answers start flowing. Tell prospects to treat results as last-run-accurate and re-run a structured dbt_* call when they need state that reflects the latest changes, and confirm the exact refresh trigger per release and deployment."
   ],
   "stats": [
     {
@@ -279,5 +200,90 @@
       "value": "DuckDB",
       "label": "local index"
     }
-  ]
+  ],
+  "tools": [
+    {
+      "name": "mcp__dbt_index__status",
+      "signature": "mcp__dbt_index__status(include?)",
+      "purpose": "Fastest first call for project orientation: returns the project shape from the index — node counts, documentation and test coverage, and the last-run summary — in a single structured call. Use it to size up an unfamiliar project before drilling into any specific node.",
+      "params": [
+        {
+          "name": "include",
+          "type": "string[]",
+          "desc": "Optional facets to expand, e.g. [\"node_counts\",\"coverage\",\"last_run\"]. Defaults to the core project shape and health rollup."
+        }
+      ],
+      "returns": "A structured project summary: node counts by type and layer, documentation coverage, test coverage, and the last-run summary (timestamp, totals, pass/fail counts) — all read from the index, no re-run."
+    },
+    {
+      "name": "mcp__dbt_index__describe",
+      "signature": "mcp__dbt_index__describe(node, include?)",
+      "purpose": "Full node introspection from the index: columns and catalog data types, compiled SQL, current test results, lineage, grain, PK markers, schema, and materialization — selected via include, all in one structured call, no file reads.",
+      "params": [
+        {
+          "name": "node",
+          "type": "string",
+          "desc": "The model/source/seed/snapshot node to introspect, e.g. 'fct_orders' or 'model.shop.int_orders_enriched'."
+        },
+        {
+          "name": "include",
+          "type": "string[]",
+          "desc": "Which facets to return, e.g. [\"columns\",\"compiled_sql\",\"tests\",\"lineage\",\"catalog\"]. Grain, PK markers, schema, and materialization are always returned."
+        }
+      ],
+      "returns": "A structured node record: grain, PK marker(s), schema, materialization, plus whichever of columns (with types and PK markers), compiled SQL, last-run test results (pass/fail + counts), catalog data types, and immediate lineage edges were requested in include."
+    },
+    {
+      "name": "mcp__dbt_index__search",
+      "signature": "mcp__dbt_index__search(query, mode?, scope?, limit?)",
+      "purpose": "Find nodes and columns touching a concept. Runs either BM25 over metadata/descriptions or regex against SQL, returning every hit with its DAG context attached. DAG context is always included.",
+      "params": [
+        {
+          "name": "query",
+          "type": "string",
+          "desc": "Search term (BM25) or regex pattern (regex mode), e.g. 'refund' or 'sum\\\\(.*amount.*\\\\)'."
+        },
+        {
+          "name": "mode",
+          "type": "string",
+          "desc": "'bm25' for metadata/description ranking, or 'regex' for pattern matching against SQL. Default 'bm25'."
+        },
+        {
+          "name": "scope",
+          "type": "string",
+          "desc": "Optional selector to narrow the search, e.g. a layer or tag selector like 'tag:finance' or a path/layer scope."
+        },
+        {
+          "name": "limit",
+          "type": "integer",
+          "desc": "Max results to return. Default 25."
+        }
+      ],
+      "returns": "Ranked list of matching nodes/columns, each with relevance score (BM25) or match snippet (regex) plus DAG context: layer, materialization, immediate upstream/downstream edges."
+    },
+    {
+      "name": "mcp__dbt_index__changeset",
+      "signature": "mcp__dbt_index__changeset(since_epoch?, with_impact?, node_filter?)",
+      "purpose": "Epoch-based diff of what changed in the index since a given epoch — nodes, columns, and tests added/removed/modified — with optional impact attached.",
+      "params": [
+        {
+          "name": "since_epoch",
+          "type": "integer",
+          "desc": "Epoch (int) to diff against. Defaults to the last flush."
+        },
+        {
+          "name": "with_impact",
+          "type": "boolean",
+          "desc": "Attach blast-radius impact for each change. Default false."
+        },
+        {
+          "name": "node_filter",
+          "type": "string",
+          "desc": "Optional node or selector to scope the diff, e.g. 'stg_products' or 'tag:finance'."
+        }
+      ],
+      "returns": "A structured delta: changed nodes, added/dropped/retyped columns, test additions/removals and status flips since the epoch, optionally with impact lists."
+    }
+  ],
+  "seName": "Live Project Index page revised. Source file: /Users/jason.chletsos/Documents/GitHub/dbt-Wizard-Deep-Dive/public/data/pages/live-project-index.json"
 }
