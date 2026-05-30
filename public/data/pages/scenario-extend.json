@@ -2,8 +2,8 @@
   "slug": "scenario-extend",
   "title": "Scenario: Extend the Model on dbt_wizard_hol",
   "tagline": "dbt Wizard walks the extend scenario end-to-end on dbt_wizard_hol",
-  "summary": "One month into The Builder Depot, the attendee moves from orienting to extending. The two-prompt scenario first asks whether support-ticket signal already lives in enriched orders, then adds ticket_count, has_open_ticket_flag, and last_ticket_status to int_orders_enriched. dbt Wizard reads both grains, computes the downstream blast radius, pre-aggregates stg_tickets to one row per order_id so the LEFT JOIN cannot fan out, and confirms the grain held with a row-count preview before anyone materializes a thing.",
-  "whyDifferent": "A general chat agent would answer prompt 2.1 from whatever SQL text it could grep, then for 2.2 paste a JOIN that quietly multiplies every order row by its ticket count and inflates every downstream metric. dbt Wizard works against the live project index instead. It reads the actual grain of int_orders_enriched and stg_tickets with describe, names the four downstream consumers with impact before touching a line, has the worker author a pre-aggregated CTE keyed on order_id, and proves the grain held by previewing real warehouse row counts. The output is a versioned model edit plus schema.yml tests and a structured submit_summary handoff, not a snippet in a chat window.",
+  "summary": "One month into The Builder Depot, the attendee moves from orienting to extending on dbt_wizard_hol, the focused thirteen-model hands-on-lab project rather than the larger illustrative reference project used elsewhere in the tour. The two-prompt scenario first asks whether support-ticket signal already lives in enriched orders, then adds ticket_count, has_open_ticket_flag, and last_ticket_status to int_orders_enriched. dbt Wizard reads both grains, computes the downstream blast radius, pre-aggregates stg_tickets to one row per order_id so the LEFT JOIN cannot fan out, and confirms the grain held with a compiled-preview row count before anyone materializes a thing.",
+  "whyDifferent": "A general chat agent would answer prompt 2.1 from whatever SQL text it could grep, then for 2.2 paste a JOIN that quietly multiplies every order row by its ticket count and inflates every downstream metric. dbt Wizard works against the live project index instead. It reads the actual grain of int_orders_enriched and stg_tickets with describe, names the two downstream consumers with impact before touching a line, has the worker author a pre-aggregated CTE keyed on order_id, and proves the grain held by previewing the compiled SELECT against deferred upstream state. The output is a versioned model edit plus schema.yml tests and a structured submit_summary handoff, not a snippet in a chat window.",
   "capabilities": [
     {
       "title": "Step 2.1 — Check whether tickets are already joined",
@@ -11,7 +11,7 @@
     },
     {
       "title": "Step 2.2 — Extend enriched orders without a grain fan-out",
-      "detail": "describe reads the stg_tickets grain (one row per ticket_id, many per order) and the columns of int_orders_enriched to preserve. impact names the downstream blast radius: fct_orders, orders_by_week, dim_customers. The worker authors a pre-aggregated tickets CTE keyed on order_id, then a LEFT JOIN; dbt_compile checks downstream parses; dbt_show plus warehouse confirm the row count is unchanged. The validation subagent fires automatically, catches the fan-out a naive join would have caused, test_writer adds schema.yml coverage, and submit_summary emits the handoff. Nothing is materialized on the tour."
+      "detail": "describe reads the stg_tickets grain (one row per ticket_id, many per order) and the columns of int_orders_enriched to preserve. impact names the downstream blast radius: fct_orders and orders_by_week. The worker authors a pre-aggregated tickets CTE keyed on order_id, then a LEFT JOIN; dbt_compile checks downstream parses; dbt_show previews the compiled row count against deferred upstream state. The validation subagent fires automatically, catches the fan-out a naive join would have caused via a deferred dbt run and a prod-vs-dev row comparison, test_writer adds schema.yml coverage, and submit_summary emits the handoff. Nothing is materialized on the tour."
     }
   ],
   "examplePrompts": [
@@ -54,10 +54,10 @@
       "sub": "three ticket fields added"
     },
     {
-      "count": 3,
-      "value": "3",
+      "count": 2,
+      "value": "2",
       "label": "downstream consumers",
-      "sub": "fct_orders, orders_by_week, dim_customers"
+      "sub": "fct_orders, orders_by_week"
     },
     {
       "count": 0,
@@ -73,10 +73,11 @@
   ],
   "seNotes": [
     "This is a press-enter fixed script. Both prompts are typed verbatim from the lab guide; do not improvise SQL. The interesting work is what dbt Wizard does between the prompt and the answer, so narrate that.",
-    "Safe-by-default is the headline. Across both prompts there are zero dbt runs and zero materializations. dbt_compile parses downstream and dbt_show previews row counts against a read-only warehouse, so the attendee sees the grain held without writing to any table.",
-    "Call out the pre-aggregation explicitly. The naive join most people would write multiplies every order by its ticket count. dbt Wizard collapses stg_tickets to one row per order_id first, then LEFT JOINs, which is why fct_orders, orders_by_week, and dim_customers all keep their counts.",
-    "Point at the validation subagent. It fires automatically after the edit, not because anyone asked. It runs the SQL check, a deferred dbt run, and a prod-vs-dev row comparison, and it is the safety net that would have flagged a fan-out if the worker had gotten the grain wrong.",
-    "impact ran before the edit, not after. dbt Wizard named the three downstream consumers from the live DAG before touching a line, so the attendee knew the blast radius up front rather than discovering it in a failed CI run.",
+    "This scenario runs on dbt_wizard_hol, the focused thirteen-model hands-on-lab project. That is a deliberately smaller surface than the larger illustrative reference project (~214 models) used in other scenarios, so the whole DAG fits in one head and every blast radius is short.",
+    "Safe-by-default is the headline. Across both prompts there are zero dbt runs and zero materializations. dbt_compile parses downstream and dbt_show previews the row count by running the compiled SELECT against deferred upstream state, so the attendee sees the grain held without writing to any table.",
+    "Call out the pre-aggregation explicitly. The naive join most people would write multiplies every order by its ticket count. dbt Wizard collapses stg_tickets to one row per order_id first, then LEFT JOINs, which is why fct_orders and orders_by_week both keep their counts.",
+    "Point at the validation subagent. It fires automatically after the edit, not because anyone asked. It runs the SQL check, a dbt run --defer against production state, and a prod-vs-dev row comparison, and it is the safety net that would have flagged a fan-out if the worker had gotten the grain wrong.",
+    "impact ran before the edit, not after. dbt Wizard named the two downstream consumers, fct_orders and orders_by_week, from the live DAG before touching a line, so the attendee knew the blast radius up front rather than discovering it in a failed CI run. dim_customers is a sibling dimension fed by stg_customers, not a downstream consumer of int_orders_enriched, so it is correctly absent from the blast radius.",
     "Every fact in this transcript is sourced from dbt Wizard itself, the 17 MCP tools and the subagent roster. Nothing here is invented capability, which matters when an attendee asks whether a tool really does what the screen shows."
   ],
   "interaction": {
@@ -161,7 +162,7 @@
       {
         "kind": "tool_result",
         "agent": "wizard",
-        "body": "Downstream of int_orders_enriched (blast radius): fct_orders, then orders_by_week and dim_customers. 3 consumers. A grain change here multiplies through all three."
+        "body": "Downstream of int_orders_enriched (blast radius): fct_orders, then orders_by_week. 2 consumers. A grain change here multiplies through both. (dim_customers is fed by stg_customers, not int_orders_enriched, so it is not in this subgraph.)"
       },
       {
         "kind": "narration",
@@ -183,7 +184,7 @@
       {
         "kind": "tool_result",
         "agent": "wizard",
-        "body": "Compiled int_orders_enriched and 3 downstream nodes (fct_orders, orders_by_week, dim_customers). 0 parse errors. All ref() edges resolve. No SQL materialized."
+        "body": "Compiled int_orders_enriched and 2 downstream nodes (fct_orders, orders_by_week). 0 parse errors. All ref() edges resolve. No SQL materialized."
       },
       {
         "kind": "tool_call",
@@ -194,18 +195,18 @@
       {
         "kind": "tool_result",
         "agent": "wizard",
-        "body": "n_rows = 18,402, n_orders = 18,402. Row count equals distinct order_id. Grain preserved at one row per order_id; the pre-aggregation prevented the fan-out (a raw join would have produced ~19,825 rows)."
+        "body": "Compiled-preview estimate (dbt_show runs the compiled SELECT against deferred upstream state, nothing built): n_rows = 18,402, n_orders = 18,402. Row count equals distinct order_id, so the grain holds at one row per order_id. The pre-aggregation is what prevents the fan-out: 4,310 tickets across 2,887 ticketed order_ids would have added ~1,423 duplicate rows on a raw join, so a naive version would preview ~19,825 rows instead."
       },
       {
         "kind": "tool_call",
         "agent": "wizard",
         "toolName": "mcp__dbt_index__warehouse",
-        "toolArgs": "{\"sql\":\"select sum(case when has_open_ticket_flag then 1 else 0 end) as open_orders, sum(case when ticket_count = 0 then 1 else 0 end) as orders_no_tickets from int_orders_enriched_dev\"}"
+        "toolArgs": "{\"sql\":\"select sum(case when has_open_ticket_flag then 1 else 0 end) as open_orders, sum(case when ticket_count = 0 then 1 else 0 end) as orders_no_tickets from {{ ref('int_orders_enriched') }}\"}"
       },
       {
         "kind": "tool_result",
         "agent": "wizard",
-        "body": "open_orders = 1,944, orders_no_tickets = 15,515. Orders without tickets survived the LEFT JOIN with ticket_count 0, exactly as specified. Read-only SELECT, nothing written."
+        "body": "Compiled-preview against deferred upstream state: open_orders = 1,944, orders_no_tickets = 15,515. Orders without tickets survive the LEFT JOIN with ticket_count 0, exactly as specified. Read-only via {{ ref() }}, nothing written or materialized."
       },
       {
         "kind": "narration",
@@ -215,7 +216,7 @@
       {
         "kind": "tool_result",
         "agent": "validation",
-        "body": "PASS. SQL valid. Deferred run clean. Prod int_orders_enriched 18,402 rows vs dev 18,402 rows: no row delta, grain held. fct_orders / orders_by_week / dim_customers row counts unchanged downstream. If the join had been written raw, this gate would have flagged a +1,423 row fan-out."
+        "body": "PASS. SQL valid. Deferred run clean. Prod int_orders_enriched 18,402 rows vs dev 18,402 rows: no row delta, grain held. fct_orders and orders_by_week row counts unchanged downstream. If the join had been written raw, this gate would have flagged a +1,423 row fan-out."
       },
       {
         "kind": "narration",
@@ -232,12 +233,12 @@
         "kind": "tool_call",
         "agent": "summary",
         "toolName": "submit_summary",
-        "toolArgs": "{\"task_summary\":\"Added ticket_count, has_open_ticket_flag, last_ticket_status to int_orders_enriched via a pre-aggregated tickets CTE and a LEFT JOIN.\",\"assumptions\":[\"last_ticket_status is the status of the most recent ticket by created_at\",\"orders with no tickets get ticket_count 0 and null last_ticket_status\"],\"expectations\":[\"grain unchanged at one row per order_id\",\"all 22 prior columns preserved\"],\"impact\":\"non-breaking: three additive columns; fct_orders, orders_by_week, dim_customers row counts unchanged\"}"
+        "toolArgs": "{\"task_summary\":\"Added ticket_count, has_open_ticket_flag, last_ticket_status to int_orders_enriched via a pre-aggregated tickets CTE and a LEFT JOIN.\",\"assumptions\":[\"last_ticket_status is the status of the most recent ticket by created_at\",\"orders with no tickets get ticket_count 0 and null last_ticket_status\"],\"expectations\":[\"grain unchanged at one row per order_id\",\"all 22 prior columns preserved\"],\"impact\":\"non-breaking: three additive columns; fct_orders and orders_by_week row counts unchanged\"}"
       },
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "Done, and nothing was materialized. int_orders_enriched now carries ticket_count, has_open_ticket_flag, and last_ticket_status. stg_tickets was collapsed to one row per order_id before the LEFT JOIN, so the model stayed at 18,402 rows, one per order_id, with all 22 original columns preserved and 15,515 ticketless orders surviving at ticket_count 0. Validation confirmed no row delta against prod and no change to fct_orders, orders_by_week, or dim_customers. test_writer added grain and accepted_values tests, and the change is classified non-breaking and additive in the handoff."
+        "body": "Done, and nothing was materialized. int_orders_enriched now carries ticket_count, has_open_ticket_flag, and last_ticket_status. stg_tickets was collapsed to one row per order_id before the LEFT JOIN, so the compiled preview stayed at 18,402 rows, one per order_id, with all 22 original columns preserved and 15,515 ticketless orders surviving at ticket_count 0. Collapsing 4,310 tickets across 2,887 ticketed orders is what kept the ~1,423-row fan-out from landing. Validation confirmed no row delta against prod and no change to the two downstream consumers, fct_orders and orders_by_week. test_writer added grain and accepted_values tests, and the change is classified non-breaking and additive in the handoff."
       }
     ]
   }
