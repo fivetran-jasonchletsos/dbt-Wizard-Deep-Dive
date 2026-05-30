@@ -5,6 +5,7 @@ import type { PageContent } from '../types'
 import { adjacent, NAV } from '../nav'
 import InteractionPlayer from '../components/InteractionPlayer'
 import Charts from '../components/Charts'
+import HolFlowMap from '../components/HolFlowMap'
 
 function groupLabelFor(slug: string): string {
   for (const group of NAV) {
@@ -86,6 +87,8 @@ export default function FunctionalityPage() {
           {data.summary}
         </p>
       </header>
+
+      {slug === 'hol-functionality-map' && <HolFlowMap />}
 
       <section
         className="panel p-6"
