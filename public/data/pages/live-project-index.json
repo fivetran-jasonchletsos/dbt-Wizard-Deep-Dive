@@ -267,16 +267,16 @@
       "data": [
         {
           "label": "models",
-          "value": 87
+          "value": 214
         },
         {
           "label": "tests",
-          "value": 280,
+          "value": 311,
           "color": "var(--teal)"
         },
         {
           "label": "sources",
-          "value": 14
+          "value": 18
         },
         {
           "label": "seeds",
@@ -291,14 +291,14 @@
   ],
   "stats": [
     {
-      "count": 87,
-      "value": "87",
+      "count": 214,
+      "value": "214",
       "label": "models indexed",
       "sub": "illustrative"
     },
     {
-      "count": 280,
-      "value": "280",
+      "count": 311,
+      "value": "311",
       "label": "tests tracked"
     },
     {

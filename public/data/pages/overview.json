@@ -209,8 +209,8 @@
         "kind": "tool_result",
         "agent": "wizard",
         "codeLang": "json",
-        "code": "{\"nodes\":{\"models\":142,\"sources\":18,\"tests\":311,\"exposures\":6},\"layers\":[\"bronze\",\"silver\",\"gold\"],\"coverage\":{\"documented\":0.78,\"tested\":0.84},\"last_run\":{\"status\":\"completed\",\"models_built\":142,\"tests_pass\":303,\"tests_fail\":8}}",
-        "body": "Project shape in one call: 142 models, 18 sources, 311 tests, 6 exposures across bronze/silver/gold. 78% documented, 84% tested. Last run: 8 failing tests."
+        "code": "{\"nodes\":{\"models\":214,\"sources\":18,\"tests\":311,\"exposures\":6},\"layers\":[\"bronze\",\"silver\",\"gold\"],\"coverage\":{\"documented\":0.78,\"tested\":0.84},\"last_run\":{\"status\":\"completed\",\"models_built\":214,\"tests_pass\":303,\"tests_fail\":8}}",
+        "body": "Project shape in one call: 214 models, 18 sources, 311 tests, 6 exposures across bronze/silver/gold. 78% documented, 84% tested. Last run: 8 failing tests."
       },
       {
         "kind": "tool_call",
@@ -264,7 +264,7 @@
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "Orientation, pulled live from the project index (no files read):\n\nProject shape: 142 models, 18 sources, 311 tests, 6 exposures. 78% documented, 84% tested. Last run completed with 8 failing tests.\n\nLayers: bronze, silver, gold.\n\nCore gold facts:\n- fct_orders — incremental, schema analytics_gold, grain one row per order_id (PK order_id). Parents: int_orders_enriched, dim_customers.\n- fct_order_items — incremental, grain one row per order_id + product_id (PK order_item_id), all tests passing.\n\nSilver staging of note: int_orders_enriched — view, grain one row per order_id, tests passing.\n\nFailing test to chase first: fct_orders.not_null_order_total — 214 null order_total rows. That column flows downstream into rpt_revenue_daily (daily revenue) and into the looker_revenue_dashboard exposure, so the nulls are reaching a customer-facing revenue report. Want me to run an impact report on order_total, or preview the offending rows against the warehouse?"
+        "body": "Orientation, pulled live from the project index (no files read):\n\nProject shape: 214 models, 18 sources, 311 tests, 6 exposures. 78% documented, 84% tested. Last run completed with 8 failing tests.\n\nLayers: bronze, silver, gold.\n\nCore gold facts:\n- fct_orders — incremental, schema analytics_gold, grain one row per order_id (PK order_id). Parents: int_orders_enriched, dim_customers.\n- fct_order_items — incremental, grain one row per order_id + product_id (PK order_item_id), all tests passing.\n\nSilver staging of note: int_orders_enriched — view, grain one row per order_id, tests passing.\n\nFailing test to chase first: fct_orders.not_null_order_total — 126 null order_total rows. That column flows downstream into rpt_revenue_daily (daily revenue) and into the looker_revenue_dashboard exposure, so the nulls are reaching a customer-facing revenue report. Want me to run an impact report on order_total, or preview the offending rows against the warehouse?"
       }
     ]
   },

@@ -83,6 +83,8 @@
   --resolved-glow: rgba(48, 196, 141, 0.14);
   --grid-dot:   rgba(255, 105, 75, 0.07);
   --grid-major: rgba(255, 105, 75, 0.035);
+  /* darker severity-low for contrast on the light surface */
+  --sev-low:    #4b5563;
 }
 
 html, body, #root { height: 100%; }

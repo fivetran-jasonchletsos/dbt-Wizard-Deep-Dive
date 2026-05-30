@@ -38,7 +38,6 @@ const EDGES: [string, string][] = [
   ['int_orders_enriched', 'fct_orders'],
   ['stg_products', 'fct_orders'],
   ['fct_orders', 'orders_by_week'],
-  ['fct_orders', 'dim_customers'],
   ['stg_customers', 'dim_customers'],
   ['stg_products', 'dim_products'],
 ];

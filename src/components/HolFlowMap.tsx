@@ -50,7 +50,7 @@ const PROMPTS: PromptNode[] = [
   { id: 'S1.2', label: 'S1.2  Live data sample', color: '#00b4a0', targets: ['describe', 'warehouse'] },
   { id: 'S1.3', label: 'S1.3  Build orders_by_week', color: '#ff694b', targets: ['describe', 'lineage', 'dbt_compile', 'dbt_show', 'ag_worker', 'ag_validation', 'ag_test_writer'] },
   { id: 'S2.1', label: 'S2.1  Tickets joined?', color: '#a78bfa', targets: ['describe', 'lineage', 'search', 'ag_explorer'] },
-  { id: 'S2.2', label: 'S2.2  Extend safely', color: '#f5a623', targets: ['describe', 'impact', 'dbt_compile', 'dbt_show', 'warehouse', 'diff', 'ag_worker', 'ag_validation', 'ag_test_writer', 'sk_scenario2'] },
+  { id: 'S2.2', label: 'S2.2  Extend safely', color: '#f5a623', targets: ['describe', 'impact', 'dbt_compile', 'dbt_show', 'warehouse', 'ag_worker', 'ag_validation', 'ag_test_writer', 'sk_scenario2'] },
 ];
 
 const FUNCS: FuncNode[] = [
@@ -62,7 +62,6 @@ const FUNCS: FuncNode[] = [
   { id: 'warehouse', label: 'warehouse', kind: 'tool' },
   { id: 'dbt_compile', label: 'dbt_compile', kind: 'tool' },
   { id: 'dbt_show', label: 'dbt_show', kind: 'tool' },
-  { id: 'diff', label: 'diff', kind: 'tool' },
   { id: 'ag_worker', label: 'worker', kind: 'agent' },
   { id: 'ag_validation', label: 'validation', kind: 'agent' },
   { id: 'ag_explorer', label: 'explorer', kind: 'agent' },
@@ -260,8 +259,8 @@ export default function HolFlowMap() {
       </div>
 
       <div className="mt-3 text-xs" style={{ color: 'var(--text-soft)' }}>
-        describe fires on every prompt: introspecting grain, keys, and columns from the live index is
-        the backbone of the whole lab. Detail sourced from dbt Wizard.
+        describe fires in all five lab prompts: introspecting grain, keys, and columns from the live
+        index is the backbone of the lab. Detail sourced from dbt Wizard.
       </div>
     </div>
   );
