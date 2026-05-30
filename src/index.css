@@ -337,6 +337,10 @@ button { font: inherit; }
 .animate-in-d2 { animation-delay: 0.12s; }
 .animate-in-d3 { animation-delay: 0.20s; }
 
+/* animated flow edges for the orchestration diagram */
+@keyframes dash-flow { to { stroke-dashoffset: -20; } }
+.flow-edge { stroke-dasharray: 4 7; animation: dash-flow 0.9s linear infinite; }
+
 /* thin scrollbars inside streaming panels */
 .scroll-thin::-webkit-scrollbar { width: 8px; height: 8px; }
 .scroll-thin::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 8px; }
