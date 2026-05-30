@@ -76,10 +76,9 @@ function BarChart({
                     width: '100%',
                     maxWidth: 54,
                     height: shown ? `${pct}%` : '0%',
-                    background: `linear-gradient(180deg, ${color}, ${color}99)`,
+                    background: color,
                     borderRadius: '4px 4px 0 0',
                     transition: `height 700ms cubic-bezier(0.22, 1, 0.36, 1) ${i * 80}ms`,
-                    boxShadow: `0 0 0 1px ${color}33`,
                   }}
                 />
               </div>
@@ -183,7 +182,7 @@ function Row({
             background: color,
             borderRadius: 999,
             transition: `width 750ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms`,
-            boxShadow: glow ? `0 0 12px ${color}66` : 'none',
+            boxShadow: glow ? '0 0 12px var(--dbt-glow)' : 'none',
           }}
         />
       </div>

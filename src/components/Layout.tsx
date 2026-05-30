@@ -27,41 +27,96 @@ function ThemeToggle() {
 }
 
 function NavTree({ onNavigate }: { onNavigate?: () => void }) {
+  const location = useLocation();
+  const activeSlug = location.pathname.startsWith('/p/') ? location.pathname.slice(3) : '';
+  const activeGroup = NAV.find((g) => g.items.some((i) => i.slug === activeSlug))?.label;
+
+  // First group open by default; also open whichever group holds the active page.
+  const [open, setOpen] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    if (NAV[0]) s.add(NAV[0].label);
+    if (activeGroup) s.add(activeGroup);
+    return s;
+  });
+  useEffect(() => {
+    if (activeGroup) {
+      setOpen((prev) => (prev.has(activeGroup) ? prev : new Set(prev).add(activeGroup)));
+    }
+  }, [activeGroup]);
+
+  const toggle = (label: string) =>
+    setOpen((prev) => {
+      const n = new Set(prev);
+      if (n.has(label)) n.delete(label);
+      else n.add(label);
+      return n;
+    });
+
   return (
-    <nav className="flex flex-col gap-5">
-      {NAV.map((group) => (
-        <div key={group.label} className="flex flex-col gap-1">
-          <div className="nav-group-label">{group.label}</div>
-          <div
-            className="text-xs mb-1 leading-snug"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            {group.blurb}
-          </div>
-          <div className="flex flex-col gap-0.5">
-            {group.items.map((item) => (
-              <NavLink
-                key={item.slug}
-                to={'/p/' + item.slug}
-                onClick={onNavigate}
-                className={({ isActive }) =>
-                  'nav-link' + (isActive ? ' active' : '')
-                }
+    <nav className="flex flex-col gap-2">
+      {NAV.map((group) => {
+        const isOpen = open.has(group.label);
+        return (
+          <div key={group.label} className="flex flex-col">
+            <button
+              type="button"
+              onClick={() => toggle(group.label)}
+              aria-expanded={isOpen}
+              className="flex items-center justify-between w-full text-left py-1.5 px-1"
+              style={{ background: 'transparent', cursor: 'pointer' }}
+            >
+              <span className="nav-group-label">{group.label}</span>
+              <svg
+                viewBox="0 0 24 24"
+                width="13"
+                height="13"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{
+                  color: 'var(--text-soft)',
+                  transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                  transition: 'transform 160ms ease',
+                  flexShrink: 0,
+                }}
+                aria-hidden="true"
               >
-                {item.label}
-                {item.hol ? (
-                  <span
-                    className="chip chip-teal"
-                    style={{ fontSize: 8, padding: '1px 5px', marginLeft: 8, verticalAlign: 'middle' }}
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </button>
+            {isOpen ? (
+              <div className="flex flex-col gap-0.5 mt-1 mb-1">
+                <div
+                  className="text-xs mb-1 px-1 leading-snug"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  {group.blurb}
+                </div>
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.slug}
+                    to={'/p/' + item.slug}
+                    onClick={onNavigate}
+                    className={({ isActive }) => 'nav-link' + (isActive ? ' active' : '')}
                   >
-                    HOL
-                  </span>
-                ) : null}
-              </NavLink>
-            ))}
+                    {item.label}
+                    {item.hol ? (
+                      <span
+                        className="chip chip-teal"
+                        style={{ fontSize: 8, padding: '1px 5px', marginLeft: 8, verticalAlign: 'middle' }}
+                      >
+                        HOL
+                      </span>
+                    ) : null}
+                  </NavLink>
+                ))}
+              </div>
+            ) : null}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }
