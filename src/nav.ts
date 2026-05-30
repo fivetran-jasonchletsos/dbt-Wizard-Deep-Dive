@@ -4,6 +4,7 @@
 export interface NavItem {
   slug: string;
   label: string;
+  hol?: boolean; // part of the Snowflake Summit 2026 hands-on lab
 }
 
 export interface NavGroup {
@@ -22,6 +23,17 @@ export const NAV: NavGroup[] = [
     label: 'Hands-On Lab',
     blurb: 'Summit 2026 prompts, mapped',
     items: [{ slug: 'hol-functionality-map', label: 'HOL Functionality Map' }],
+  },
+  {
+    label: 'Scenarios',
+    blurb: 'dbt Wizard walking each one on dbt_wizard_hol',
+    items: [
+      { slug: 'scenario-onboarding', label: 'Onboarding', hol: true },
+      { slug: 'scenario-extend', label: 'Extend the Model', hol: true },
+      { slug: 'scenario-inventory', label: 'Inventory Misallocation' },
+      { slug: 'scenario-schema-drift', label: 'Source Schema Drift' },
+      { slug: 'scenario-segmentation', label: 'Customer Segmentation' },
+    ],
   },
   {
     label: 'Graph & Index Intelligence',

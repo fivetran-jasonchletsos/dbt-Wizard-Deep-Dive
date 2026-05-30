@@ -269,5 +269,21 @@
     "Workers have clear file ownership; pair this with parallel execution to explain how authoring one model and exploring another happen simultaneously without collisions.",
     "The summary narrator is specific to live builds and explains grain and join decisions as the build proceeds. Do not confuse it with submit_summary, which is the final structured handoff payload emitted at the end.",
     "Dev-vs-prod comparison uses deferred state (defer plus a state path to the production manifest/artifacts), not a dbt Cloud token. The search tool always attaches DAG context, so there is no flag to request it."
+  ],
+  "stats": [
+    {
+      "count": 4,
+      "value": "4",
+      "label": "sub-agent roles"
+    },
+    {
+      "count": 10,
+      "value": "10",
+      "label": "max concurrent"
+    },
+    {
+      "value": "submit_summary",
+      "label": "structured handoff"
+    }
   ]
 }

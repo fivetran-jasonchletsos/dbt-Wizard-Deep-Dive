@@ -333,5 +333,21 @@
         }
       ]
     }
+  ],
+  "stats": [
+    {
+      "value": "automatic",
+      "label": "fires after every edit"
+    },
+    {
+      "count": 4,
+      "value": "4",
+      "label": "validation steps",
+      "sub": "SQL check, run --defer, prod vs dev, impact"
+    },
+    {
+      "value": "pre-merge",
+      "label": "catches regressions"
+    }
   ]
 }

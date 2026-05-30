@@ -1,0 +1,244 @@
+{
+  "slug": "scenario-extend",
+  "title": "Scenario: Extend the Model on dbt_wizard_hol",
+  "tagline": "dbt Wizard walks the extend scenario end-to-end on dbt_wizard_hol",
+  "summary": "One month into The Builder Depot, the attendee moves from orienting to extending. The two-prompt scenario first asks whether support-ticket signal already lives in enriched orders, then adds ticket_count, has_open_ticket_flag, and last_ticket_status to int_orders_enriched. dbt Wizard reads both grains, computes the downstream blast radius, pre-aggregates stg_tickets to one row per order_id so the LEFT JOIN cannot fan out, and confirms the grain held with a row-count preview before anyone materializes a thing.",
+  "whyDifferent": "A general chat agent would answer prompt 2.1 from whatever SQL text it could grep, then for 2.2 paste a JOIN that quietly multiplies every order row by its ticket count and inflates every downstream metric. dbt Wizard works against the live project index instead. It reads the actual grain of int_orders_enriched and stg_tickets with describe, names the four downstream consumers with impact before touching a line, has the worker author a pre-aggregated CTE keyed on order_id, and proves the grain held by previewing real warehouse row counts. The output is a versioned model edit plus schema.yml tests and a structured submit_summary handoff, not a snippet in a chat window.",
+  "capabilities": [
+    {
+      "title": "Step 2.1 — Check whether tickets are already joined",
+      "detail": "dbt Wizard introspects int_orders_enriched with describe to read its column list and grain, walks lineage to enumerate the upstream models, and runs search for any stg_tickets reference. An explorer subagent runs the lineage and search legs in parallel so the answer comes back with DAG context attached, not a guess from grepped SQL."
+    },
+    {
+      "title": "Step 2.2 — Extend enriched orders without a grain fan-out",
+      "detail": "describe reads the stg_tickets grain (one row per ticket_id, many per order) and the columns of int_orders_enriched to preserve. impact names the downstream blast radius: fct_orders, orders_by_week, dim_customers. The worker authors a pre-aggregated tickets CTE keyed on order_id, then a LEFT JOIN; dbt_compile checks downstream parses; dbt_show plus warehouse confirm the row count is unchanged. The validation subagent fires automatically, catches the fan-out a naive join would have caused, test_writer adds schema.yml coverage, and submit_summary emits the handoff. Nothing is materialized on the tour."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "Is support ticket information joined to orders, in enriched orders?",
+      "intent": "Orient: confirm whether int_orders_enriched already carries any stg_tickets signal before proposing to add it.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage",
+        "mcp__dbt_index__search",
+        "explorer"
+      ]
+    },
+    {
+      "prompt": "Update enriched orders to add ticket count, has_open_ticket_flag, and last_ticket_status from stg_tickets. Then aggregate stg_tickets to one row per order_id before joining. Use a left join so orders without tickets still appear. Preserve every column.",
+      "intent": "Extend int_orders_enriched with three ticket fields, pre-aggregating tickets to one row per order_id so the LEFT JOIN preserves the one-row-per-order grain and never inflates downstream metrics.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__impact",
+        "worker",
+        "mcp__dbt_index__dbt_compile",
+        "mcp__dbt_index__dbt_show",
+        "mcp__dbt_index__warehouse",
+        "validation",
+        "test_writer",
+        "submit_summary"
+      ]
+    }
+  ],
+  "stats": [
+    {
+      "count": 2,
+      "value": "2",
+      "label": "prompts",
+      "sub": "check, then extend"
+    },
+    {
+      "value": "int_orders_enriched",
+      "label": "model extended",
+      "sub": "three ticket fields added"
+    },
+    {
+      "count": 3,
+      "value": "3",
+      "label": "downstream consumers",
+      "sub": "fct_orders, orders_by_week, dim_customers"
+    },
+    {
+      "count": 0,
+      "value": "0",
+      "label": "dbt runs to preview",
+      "sub": "compile + dbt_show only"
+    },
+    {
+      "value": "unchanged",
+      "label": "grain after join",
+      "sub": "one row per order_id"
+    }
+  ],
+  "seNotes": [
+    "This is a press-enter fixed script. Both prompts are typed verbatim from the lab guide; do not improvise SQL. The interesting work is what dbt Wizard does between the prompt and the answer, so narrate that.",
+    "Safe-by-default is the headline. Across both prompts there are zero dbt runs and zero materializations. dbt_compile parses downstream and dbt_show previews row counts against a read-only warehouse, so the attendee sees the grain held without writing to any table.",
+    "Call out the pre-aggregation explicitly. The naive join most people would write multiplies every order by its ticket count. dbt Wizard collapses stg_tickets to one row per order_id first, then LEFT JOINs, which is why fct_orders, orders_by_week, and dim_customers all keep their counts.",
+    "Point at the validation subagent. It fires automatically after the edit, not because anyone asked. It runs the SQL check, a deferred dbt run, and a prod-vs-dev row comparison, and it is the safety net that would have flagged a fan-out if the worker had gotten the grain wrong.",
+    "impact ran before the edit, not after. dbt Wizard named the three downstream consumers from the live DAG before touching a line, so the attendee knew the blast radius up front rather than discovering it in a failed CI run.",
+    "Every fact in this transcript is sourced from dbt Wizard itself, the 17 MCP tools and the subagent roster. Nothing here is invented capability, which matters when an attendee asks whether a tool really does what the screen shows."
+  ],
+  "interaction": {
+    "scenario": "Scenario: Extend the Model on dbt_wizard_hol, played end-to-end. One month into The Builder Depot, the attendee first checks whether enriched orders already carries support-ticket signal, then extends int_orders_enriched with ticket_count, has_open_ticket_flag, and last_ticket_status. dbt Wizard reads both grains, names the downstream blast radius, pre-aggregates tickets to one row per order_id, and confirms the grain held before anything is materialized.",
+    "userPrompt": "Is support ticket information joined to orders, in enriched orders?",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Is support ticket information joined to orders, in enriched orders?"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "I'll answer this from the project index rather than guessing. Let me read the columns and grain of int_orders_enriched, walk its upstream lineage to see what actually feeds it, and search the project for any stg_tickets reference. I'll fan the lineage and search legs out to an explorer so they run in parallel."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"include\":[\"columns\",\"grain\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "int_orders_enriched: grain one row per order_id, 22 columns. order_id, customer_id, product_id, order_total, order_status, order_date, customer_name, customer_segment, product_name, product_category, ... No column matches ticket. Upstream refs: stg_orders, stg_customers, stg_products."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "explorer",
+        "toolName": "mcp__dbt_index__lineage",
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"direction\":\"upstream\",\"depth\":2}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "explorer",
+        "body": "Upstream of int_orders_enriched: stg_orders -> raw.orders, stg_customers -> raw.customers, stg_products -> raw.products. stg_tickets is NOT in the upstream subgraph."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "explorer",
+        "toolName": "mcp__dbt_index__search",
+        "toolArgs": "{\"query\":\"stg_tickets\",\"mode\":\"regex\",\"scope\":\"silver\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "explorer",
+        "body": "stg_tickets is referenced by 0 models. It is built (one row per ticket_id) but no mart or intermediate model joins it yet."
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "No. Support ticket information is not joined to orders in enriched orders. int_orders_enriched is grained one row per order_id and pulls only from stg_orders, stg_customers, and stg_products. stg_tickets exists in the silver layer at ticket_id grain but is referenced by zero models, so no ticket signal reaches fct_orders or anything downstream. It is available to add."
+      },
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Update enriched orders to add ticket count, has_open_ticket_flag, and last_ticket_status from stg_tickets. Then aggregate stg_tickets to one row per order_id before joining. Use a left join so orders without tickets still appear. Preserve every column."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Before editing I'll read both grains and the downstream blast radius. stg_tickets is many-per-order, so joining it raw would fan out int_orders_enriched and inflate every downstream metric. I'll have the worker pre-aggregate stg_tickets to one row per order_id, then LEFT JOIN. First, describe stg_tickets and re-confirm the columns I must preserve, then run impact."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"stg_tickets\",\"include\":[\"columns\",\"grain\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "stg_tickets: grain one row per ticket_id (many per order_id). Columns: ticket_id, order_id, ticket_status ('open','closed','escalated'), created_at. 4,310 ticket rows across 2,887 distinct order_ids."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__impact",
+        "toolArgs": "{\"node\":\"int_orders_enriched\",\"direction\":\"downstream\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "Downstream of int_orders_enriched (blast radius): fct_orders, then orders_by_week and dim_customers. 3 consumers. A grain change here multiplies through all three."
+      },
+      {
+        "kind": "narration",
+        "agent": "worker",
+        "body": "Authoring the edit. I add a tickets_agg CTE that collapses stg_tickets to one row per order_id: count(*) as ticket_count, a max-based open flag, and last_ticket_status via the latest created_at. Then a LEFT JOIN so orders without tickets survive with ticket_count 0 and a null status, with coalesce to keep the flag boolean. All 22 original columns are carried through with the final star plus the three new fields."
+      },
+      {
+        "kind": "code",
+        "agent": "worker",
+        "codeLang": "sql",
+        "code": "-- models/intermediate/int_orders_enriched.sql\n{{ config(materialized='view') }}\n\nwith orders as (\n    select * from {{ ref('stg_orders') }}\n),\n\ncustomers as (\n    select * from {{ ref('stg_customers') }}\n),\n\nproducts as (\n    select * from {{ ref('stg_products') }}\n),\n\n-- pre-aggregate tickets to one row per order_id so the join cannot fan out\ntickets_agg as (\n    select\n        order_id,\n        count(*)                                       as ticket_count,\n        max(case when ticket_status = 'open'\n                 then 1 else 0 end)                    as open_ticket_int,\n        max(created_at)                                as last_ticket_at\n    from {{ ref('stg_tickets') }}\n    group by 1\n),\n\nlast_status as (\n    select\n        t.order_id,\n        t.ticket_status as last_ticket_status\n    from {{ ref('stg_tickets') }} t\n    inner join tickets_agg a\n        on t.order_id = a.order_id\n       and t.created_at = a.last_ticket_at\n),\n\nenriched as (\n    select\n        o.*,                                  -- preserve every existing column\n        c.customer_name,\n        c.customer_segment,\n        p.product_name,\n        p.product_category,\n        coalesce(ta.ticket_count, 0)          as ticket_count,\n        coalesce(ta.open_ticket_int, 0) = 1  as has_open_ticket_flag,\n        ls.last_ticket_status                 as last_ticket_status\n    from orders o\n    left join customers c on o.customer_id = c.customer_id\n    left join products  p on o.product_id  = p.product_id\n    left join tickets_agg ta on o.order_id = ta.order_id\n    left join last_status ls on o.order_id = ls.order_id\n)\n\nselect * from enriched"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_compile",
+        "toolArgs": "{\"select\":\"int_orders_enriched+\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "Compiled int_orders_enriched and 3 downstream nodes (fct_orders, orders_by_week, dim_customers). 0 parse errors. All ref() edges resolve. No SQL materialized."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_show",
+        "toolArgs": "{\"inline\":\"select count(*) as n_rows, count(distinct order_id) as n_orders from {{ ref('int_orders_enriched') }}\",\"limit\":5}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "n_rows = 18,402, n_orders = 18,402. Row count equals distinct order_id. Grain preserved at one row per order_id; the pre-aggregation prevented the fan-out (a raw join would have produced ~19,825 rows)."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__warehouse",
+        "toolArgs": "{\"sql\":\"select sum(case when has_open_ticket_flag then 1 else 0 end) as open_orders, sum(case when ticket_count = 0 then 1 else 0 end) as orders_no_tickets from int_orders_enriched_dev\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "open_orders = 1,944, orders_no_tickets = 15,515. Orders without tickets survived the LEFT JOIN with ticket_count 0, exactly as specified. Read-only SELECT, nothing written."
+      },
+      {
+        "kind": "narration",
+        "agent": "validation",
+        "body": "Validation firing automatically after the model edit. SQL check, then dbt run --defer against production state, then prod-vs-dev row comparison, then a downstream impact re-check."
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "body": "PASS. SQL valid. Deferred run clean. Prod int_orders_enriched 18,402 rows vs dev 18,402 rows: no row delta, grain held. fct_orders / orders_by_week / dim_customers row counts unchanged downstream. If the join had been written raw, this gate would have flagged a +1,423 row fan-out."
+      },
+      {
+        "kind": "narration",
+        "agent": "test_writer",
+        "body": "Adding schema.yml coverage for the three new columns so the grain and domain stay enforced."
+      },
+      {
+        "kind": "code",
+        "agent": "test_writer",
+        "codeLang": "yaml",
+        "code": "# models/intermediate/_int_orders_enriched.yml\nmodels:\n  - name: int_orders_enriched\n    columns:\n      - name: order_id\n        tests: [unique, not_null]   # grain guard\n      - name: ticket_count\n        tests:\n          - not_null\n      - name: has_open_ticket_flag\n        tests:\n          - not_null\n          - accepted_values:\n              values: [true, false]\n      - name: last_ticket_status\n        tests:\n          - accepted_values:\n              values: ['open', 'closed', 'escalated']"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "summary",
+        "toolName": "submit_summary",
+        "toolArgs": "{\"task_summary\":\"Added ticket_count, has_open_ticket_flag, last_ticket_status to int_orders_enriched via a pre-aggregated tickets CTE and a LEFT JOIN.\",\"assumptions\":[\"last_ticket_status is the status of the most recent ticket by created_at\",\"orders with no tickets get ticket_count 0 and null last_ticket_status\"],\"expectations\":[\"grain unchanged at one row per order_id\",\"all 22 prior columns preserved\"],\"impact\":\"non-breaking: three additive columns; fct_orders, orders_by_week, dim_customers row counts unchanged\"}"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Done, and nothing was materialized. int_orders_enriched now carries ticket_count, has_open_ticket_flag, and last_ticket_status. stg_tickets was collapsed to one row per order_id before the LEFT JOIN, so the model stayed at 18,402 rows, one per order_id, with all 22 original columns preserved and 15,515 ticketless orders surviving at ticket_count 0. Validation confirmed no row delta against prod and no change to fct_orders, orders_by_week, or dim_customers. test_writer added grain and accepted_values tests, and the change is classified non-breaking and additive in the handoff."
+      }
+    ]
+  }
+}

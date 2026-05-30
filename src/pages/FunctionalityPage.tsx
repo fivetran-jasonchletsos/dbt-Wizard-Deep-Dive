@@ -9,6 +9,7 @@ import HolFlowMap from '../components/HolFlowMap'
 import LineageGraph from '../components/LineageGraph'
 import AgentOrchestration from '../components/AgentOrchestration'
 import ToolGalaxy from '../components/ToolGalaxy'
+import StatBand from '../components/StatBand'
 
 function groupLabelFor(slug: string): string {
   for (const group of NAV) {
@@ -94,6 +95,7 @@ export default function FunctionalityPage() {
   const groupLabel = groupLabelFor(slug)
   const { prev, next } = adjacent(slug)
   const Hero = HERO_VISUALS[slug as keyof typeof HERO_VISUALS]
+  const isHol = NAV.some((g) => g.items.some((i) => i.slug === slug && i.hol))
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-12 space-y-12 animate-in">
@@ -104,13 +106,20 @@ export default function FunctionalityPage() {
         <h1 className="font-display text-3xl sm:text-4xl" style={{ color: 'var(--text)' }}>
           {data.title}
         </h1>
-        <div>
+        <div className="flex flex-wrap items-center gap-2">
           <span className="chip chip-dbt">{data.tagline}</span>
+          {isHol ? <span className="chip chip-teal">Hands-On Lab</span> : null}
         </div>
         <p className="text-base max-w-prose" style={{ color: 'var(--text-soft)' }}>
           {data.summary}
         </p>
       </header>
+
+      {data.stats && data.stats.length > 0 ? (
+        <section>
+          <StatBand stats={data.stats} />
+        </section>
+      ) : null}
 
       {Hero ? <Hero /> : null}
 

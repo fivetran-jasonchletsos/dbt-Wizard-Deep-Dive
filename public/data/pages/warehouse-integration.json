@@ -273,5 +273,21 @@
         }
       ]
     }
+  ],
+  "stats": [
+    {
+      "value": "read-only",
+      "label": "warehouse access",
+      "sub": "SELECT-only, no DML/DDL"
+    },
+    {
+      "count": 0,
+      "value": "0",
+      "label": "dbt runs to preview"
+    },
+    {
+      "value": "dev vs prod",
+      "label": "diff comparison"
+    }
   ]
 }

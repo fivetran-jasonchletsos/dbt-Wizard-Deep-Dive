@@ -1,4 +1,31 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+// Where each prompt's scenario page and each capability's functionality page live.
+const PROMPT_TARGET: Record<string, string> = {
+  'S1.1': 'scenario-onboarding',
+  'S1.2': 'scenario-onboarding',
+  'S1.3': 'scenario-onboarding',
+  'S2.1': 'scenario-extend',
+  'S2.2': 'scenario-extend',
+};
+const FUNC_TARGET: Record<string, string> = {
+  status: 'live-project-index',
+  search: 'live-project-index',
+  describe: 'live-project-index',
+  lineage: 'dag-aware-intelligence',
+  impact: 'dag-aware-intelligence',
+  warehouse: 'warehouse-integration',
+  dbt_compile: 'dbt-native-operations',
+  dbt_show: 'warehouse-integration',
+  diff: 'warehouse-integration',
+  ag_worker: 'agent-architecture',
+  ag_validation: 'agent-architecture',
+  ag_explorer: 'agent-architecture',
+  ag_test_writer: 'agent-architecture',
+  sk_onboarding: 'scenario-onboarding',
+  sk_scenario2: 'scenario-extend',
+};
 
 // The Snowflake Summit 2026 HOL, mapped. Left = the 5 lab prompts attendees type.
 // Right = the dbt Wizard functionality each one triggers. Edges connect them.
@@ -75,6 +102,7 @@ export default function HolFlowMap() {
   const [hoverP, setHoverP] = useState<string | null>(null);
   const [hoverF, setHoverF] = useState<string | null>(null);
   const idle = !hoverP && !hoverF;
+  const navigate = useNavigate();
 
   const edges = EDGE_LIST;
 
@@ -102,8 +130,9 @@ export default function HolFlowMap() {
             The lab, mapped to dbt Wizard functionality
           </div>
           <div className="mt-1 text-xs" style={{ color: 'var(--text-soft)' }}>
-            Hover a prompt to trace what it fires, or hover a capability to see which prompts use it.
-            The count on each capability is how many of the five prompts trigger it.
+            Hover to trace connections; the count on each capability is how many of the five prompts
+            trigger it. Click a prompt to open its scenario walkthrough, or click a capability to open
+            its functionality page.
           </div>
         </div>
         <div className="flex flex-wrap gap-3 text-[11px]" style={{ color: 'var(--text-muted)' }}>
@@ -150,6 +179,7 @@ export default function HolFlowMap() {
                 key={p.id}
                 onMouseEnter={() => setHoverP(p.id)}
                 onMouseLeave={() => setHoverP(null)}
+                onClick={() => PROMPT_TARGET[p.id] && navigate('/p/' + PROMPT_TARGET[p.id])}
                 style={{ cursor: 'pointer' }}
                 opacity={active ? 1 : 0.25}
               >
@@ -188,6 +218,7 @@ export default function HolFlowMap() {
                 key={f.id}
                 onMouseEnter={() => setHoverF(f.id)}
                 onMouseLeave={() => setHoverF(null)}
+                onClick={() => FUNC_TARGET[f.id] && navigate('/p/' + FUNC_TARGET[f.id])}
                 style={{ cursor: 'pointer' }}
                 opacity={active ? 1 : 0.22}
               >

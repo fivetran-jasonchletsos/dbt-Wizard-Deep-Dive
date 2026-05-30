@@ -246,5 +246,21 @@
         }
       ]
     }
+  ],
+  "stats": [
+    {
+      "count": 4,
+      "value": "4",
+      "label": "context kinds",
+      "sub": "glossary, fiscal, org, compliance"
+    },
+    {
+      "value": "jargon → model",
+      "label": "synonym resolution"
+    },
+    {
+      "value": "proactive",
+      "label": "coverage gaps surfaced"
+    }
   ]
 }

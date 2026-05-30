@@ -288,5 +288,24 @@
       ],
       "returns": "Row-count delta and per-column value differences between dev and prod, plus a breaking/non-breaking assessment. Requires production state via dbt Cloud or --defer --state."
     }
+  ],
+  "stats": [
+    {
+      "value": "local",
+      "label": "DuckDB index",
+      "sub": "metadata, not row data"
+    },
+    {
+      "value": "read-only",
+      "label": "warehouse"
+    },
+    {
+      "value": "--defer",
+      "label": "no dbt Cloud required"
+    },
+    {
+      "value": "human",
+      "label": "reviews and merges"
+    }
   ]
 }

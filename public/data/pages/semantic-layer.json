@@ -282,5 +282,22 @@
         }
       ]
     }
+  ],
+  "stats": [
+    {
+      "count": 4,
+      "value": "4",
+      "label": "metric actions",
+      "sub": "list, describe, run, dry-run"
+    },
+    {
+      "count": 1,
+      "value": "1",
+      "label": "governed definition"
+    },
+    {
+      "value": "MetricFlow",
+      "label": "semantic layer"
+    }
   ]
 }

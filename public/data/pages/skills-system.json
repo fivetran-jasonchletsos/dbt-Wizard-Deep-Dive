@@ -203,5 +203,25 @@
         }
       ]
     }
+  ],
+  "stats": [
+    {
+      "count": 3,
+      "value": "3",
+      "label": "disclosure levels"
+    },
+    {
+      "value": "~100 words",
+      "label": "always in context"
+    },
+    {
+      "value": "<500 lines",
+      "label": "SKILL.md body"
+    },
+    {
+      "count": 5,
+      "value": "5",
+      "label": "installed skills"
+    }
   ]
 }

@@ -1,0 +1,299 @@
+{
+  "slug": "scenario-onboarding",
+  "title": "Scenario: Onboarding on dbt_wizard_hol",
+  "tagline": "dbt Wizard walks the onboarding scenario on dbt_wizard_hol",
+  "summary": "A new analytics engineer at The Builder Depot is in their first week with one goal: get familiar with the dbt_wizard_hol project and ship something small by Friday. dbt Wizard orients them across the bronze, silver, and gold layers, lets them sample real data read-only, then authors, compiles, and previews a brand-new orders_by_week mart. Nothing is materialized on the tour: every answer is grounded in the project graph and a SELECT-only warehouse, and the build is a versioned artifact the attendee leaves with.",
+  "whyDifferent": "A general chat agent guesses at table names, hallucinates columns, and hands back SQL you paste somewhere and hope. dbt Wizard answers from three sources of ground truth instead: the dbt graph (status, search, describe, lineage), a read-only warehouse for real rows, and a compiled, ref-resolved artifact for anything it builds. Onboarding answers cite the actual models and layers in dbt_wizard_hol; the orders_by_week build is committed as a real .sql file with {{ ref() }} and a config block, compiled and previewed via dbt_show, and validated by the auto-firing validation subagent before anyone runs a single materialization.",
+  "capabilities": [
+    {
+      "title": "Step 1.1 — Orient",
+      "detail": "dbt Wizard reads the project graph and produces a layered map of The Builder Depot. status enumerates the project and node counts, search groups models by layer and domain, and describe plus lineage confirm grain and dependencies. Backed by the onboarding skill so the summary reads like a real project walkthrough, not a generic dbt explainer."
+    },
+    {
+      "title": "Step 1.2 — Discover",
+      "detail": "describe picks a representative subset of key columns from fct_orders, then warehouse runs a 10-row sample and a distinct-values scan on order_status. The warehouse tool is SELECT-only and read-only, so attendees see real rows with zero dbt run and no write path to the warehouse."
+    },
+    {
+      "title": "Step 1.3 — Build",
+      "detail": "describe and lineage confirm the week grain and upstream refs, the worker subagent authors orders_by_week.sql with {{ ref('fct_orders') }} and a mart config, dbt_compile resolves it, and dbt_show previews the result. The validation subagent auto-fires after the edit (SQL check, deferred run, prod-vs-dev row comparison, impact) and test_writer proposes schema.yml tests. Safe-by-default: compile and preview only, never materialize."
+    }
+  ],
+  "stats": [
+    {
+      "count": 3,
+      "value": "3",
+      "label": "prompts",
+      "sub": "press-enter fixed script"
+    },
+    {
+      "value": "orders_by_week",
+      "label": "artifact shipped",
+      "sub": "versioned .sql with ref + config"
+    },
+    {
+      "count": 0,
+      "value": "0",
+      "label": "dbt runs to preview",
+      "sub": "compile + dbt_show only"
+    },
+    {
+      "count": 17,
+      "value": "17",
+      "label": "MCP tools available",
+      "sub": "this scenario fires 7 of them"
+    },
+    {
+      "value": "read-only",
+      "label": "warehouse access",
+      "sub": "SELECT-only, no write path"
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "I'm a new analytics engineer onboarding to this dbt project. Summarize what it does, the main subject areas, and how it is organized. Then list all the models grouped by layer and domain.",
+      "intent": "Orient on an unfamiliar project: get a grounded summary plus a layered, domain-grouped model inventory.",
+      "invokes": [
+        "mcp__dbt_index__status",
+        "mcp__dbt_index__search",
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Show me a 10-row sample from fct_orders and the distinct values in the order_status column. Show both as readable tables. For the sample, use a representative subset of key columns.",
+      "intent": "Inspect real data safely: a representative sample plus the order_status domain, read-only, no materialization.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__warehouse"
+      ]
+    },
+    {
+      "prompt": "Create a new mart model called orders_by_week that aggregates orders to the week grain with order_count, gross_revenue, and distinct_customers. Then compile and preview it.",
+      "intent": "Ship a small mart: author orders_by_week to the week grain, compile it, and preview without materializing.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage",
+        "mcp__dbt_index__dbt_compile",
+        "mcp__dbt_index__dbt_show"
+      ]
+    }
+  ],
+  "interaction": {
+    "scenario": "First week at The Builder Depot. A new analytics engineer opens the dbt Wizard CLI on the dbt_wizard_hol project and presses enter on the first onboarding prompt. The goal: get oriented, look at real data safely, and ship one small mart by Friday.",
+    "userPrompt": "I'm a new analytics engineer onboarding to this dbt project. Summarize what it does, the main subject areas, and how it is organized. Then list all the models grouped by layer and domain.",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "I'm a new analytics engineer onboarding to this dbt project. Summarize what it does, the main subject areas, and how it is organized. Then list all the models grouped by layer and domain."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Welcome to The Builder Depot. Let me read the project graph first so the summary is grounded in what's actually here, not a generic dbt description. I'll pull project status, then enumerate every model and group it by layer and domain."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__status",
+        "toolArgs": "{}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "project: dbt_wizard_hol  target: dev  adapter: snowflake\nnodes: 13 models, 4 sources, 22 tests, 0 snapshots, 0 seeds\nlayers detected: staging, intermediate, marts\nlast parse: clean (0 errors)",
+        "codeLang": "text"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__search",
+        "toolArgs": "{\"query\":\"*\",\"group_by\":[\"layer\",\"domain\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "sources/bronze: raw.orders, raw.tickets, raw.products, raw.customers\nstaging/silver: stg_orders, stg_tickets, stg_products, stg_customers\nintermediate/silver: int_orders_enriched\nmarts/gold: fct_orders, dim_customers, dim_products\ndomains: orders, support, catalog, customers",
+        "codeLang": "text"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"int_orders_enriched\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "int_orders_enriched — grain: one row per order_id\njoins stg_orders to stg_customers and stg_products to attach customer and product attributes\nfeeds: fct_orders",
+        "codeLang": "text"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__lineage",
+        "toolArgs": "{\"node\":\"fct_orders\",\"direction\":\"upstream\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "raw.orders -> stg_orders -> int_orders_enriched -> fct_orders\nraw.customers -> stg_customers -> int_orders_enriched\nraw.products -> stg_products -> int_orders_enriched",
+        "codeLang": "text"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "The Builder Depot (TBD) is a retail analytics project. It moves four raw feeds (orders, tickets, products, customers) through a clean medallion structure. Subject areas: orders (the core fact), support (tickets), catalog (products), and customers.\n\nLayers and domains:\n- Bronze sources: raw.orders, raw.tickets, raw.products, raw.customers\n- Silver staging: stg_orders, stg_tickets, stg_products, stg_customers — one cleaned model per source\n- Silver intermediate: int_orders_enriched — orders joined to customer and product attributes, grained one row per order_id\n- Gold marts: fct_orders (order grain, the central fact), dim_customers, dim_products\n\nReporting flows orders -> staging -> int_orders_enriched -> fct_orders, with dim_customers and dim_products on the side for slicing. Tickets currently stops at stg_tickets and is not yet joined into a mart, which is a useful gap to know about."
+      },
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Show me a 10-row sample from fct_orders and the distinct values in the order_status column. Show both as readable tables. For the sample, use a representative subset of key columns."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "I'll check fct_orders' columns first so I pick a representative subset rather than dumping every field, then query the warehouse directly. The warehouse tool is read-only and SELECT-only, so this is a live look at real rows with no dbt run."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"node\":\"fct_orders\",\"columns\":true}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "fct_orders columns: order_id (PK), customer_id, product_id, order_total, order_status, order_date\norder_status enum hint: completed, returned, cancelled, pending\nkey columns chosen: order_id, customer_id, order_status, order_total, order_date",
+        "codeLang": "text"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__warehouse",
+        "toolArgs": "{\"sql\":\"select order_id, customer_id, order_status, order_total, order_date from {{ ref('fct_orders') }} order by order_date desc limit 10\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "order_id | customer_id | order_status | order_total | order_date\n80412    | C-1188      | completed    | 142.55      | 2026-05-27\n80411    | C-0934      | pending      | 58.20       | 2026-05-27\n80409    | C-1502      | returned     | 219.99      | 2026-05-26\n80407    | C-0461      | completed    | 76.40       | 2026-05-26\n80405    | C-1188      | cancelled    | 34.00       | 2026-05-25\n80403    | C-0779      | completed    | 318.10      | 2026-05-25\n80401    | C-1330      | completed    | 12.99       | 2026-05-24\n80399    | C-0461      | pending      | 91.75       | 2026-05-24\n80398    | C-1502      | completed    | 204.30      | 2026-05-23\n80396    | C-0210      | returned     | 47.85       | 2026-05-23",
+        "codeLang": "text"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__warehouse",
+        "toolArgs": "{\"sql\":\"select order_status, count(*) as n from {{ ref('fct_orders') }} group by 1 order by n desc\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "order_status | n\ncompleted    | 41208\npending      | 6133\nreturned     | 3877\ncancelled    | 2002",
+        "codeLang": "text"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Here is a representative 10-column-trimmed sample and the full order_status domain, both read-only.\n\nSample from fct_orders (key columns): the 10 most recent orders span all four statuses, order_total ranges roughly 13 to 318, and customers repeat (C-1188 and C-0461 each appear twice).\n\nDistinct order_status across the whole fact:\n- completed: 41,208\n- pending: 6,133\n- returned: 3,877\n- cancelled: 2,002\n\nSo order_status has exactly four values and completed dominates at about 78 percent. No dbt run touched this, it was a direct SELECT against the warehouse."
+      },
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Create a new mart model called orders_by_week that aggregates orders to the week grain with order_count, gross_revenue, and distinct_customers. Then compile and preview it."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "I'll confirm the source grain and the columns I need to aggregate, then have the worker subagent author orders_by_week at the week grain. I'll ref fct_orders rather than the raw source so the new mart inherits all the staging cleanup. Then compile and preview only, no materialization."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__lineage",
+        "toolArgs": "{\"node\":\"fct_orders\",\"direction\":\"downstream\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "fct_orders -> (no current downstream marts)\nnote: orders_by_week will be the first downstream consumer of fct_orders",
+        "codeLang": "text"
+      },
+      {
+        "kind": "narration",
+        "agent": "worker",
+        "body": "Authoring models/marts/orders_by_week.sql. Truncating order_date to the week for the grain, counting orders, summing order_total for gross_revenue, and counting distinct customer_id. I'll exclude cancelled orders from revenue since they never settled."
+      },
+      {
+        "kind": "code",
+        "agent": "worker",
+        "codeLang": "sql",
+        "code": "{{ config(materialized='table', schema='marts') }}\n\nwith orders as (\n    select\n        order_id,\n        customer_id,\n        order_total,\n        order_status,\n        date_trunc('week', order_date) as order_week\n    from {{ ref('fct_orders') }}\n)\n\nselect\n    order_week,\n    count(*)                                            as order_count,\n    sum(case when order_status != 'cancelled'\n             then order_total else 0 end)               as gross_revenue,\n    count(distinct customer_id)                         as distinct_customers\nfrom orders\ngroup by 1\norder by 1"
+      },
+      {
+        "kind": "narration",
+        "agent": "validation",
+        "body": "Edit detected on orders_by_week.sql. Auto-firing validation: static SQL check, then dbt run --defer against prod state, then prod-vs-dev row comparison, then impact."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "validation",
+        "toolName": "mcp__dbt_index__impact",
+        "toolArgs": "{\"node\":\"orders_by_week\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "body": "SQL check: pass (refs resolve, no ambiguous columns)\ndeferred run: ok, 1 model selected\ngrain check: group-by on order_week produces 1 row per week (no fan-out)\nimpact: 0 existing downstream nodes affected (new leaf model)",
+        "codeLang": "text"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_compile",
+        "toolArgs": "{\"select\":\"orders_by_week\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "Compiled target/compiled/dbt_wizard_hol/models/marts/orders_by_week.sql\n{{ ref('fct_orders') }} resolved -> analytics.dev_marts.fct_orders\n0 errors, 0 warnings",
+        "codeLang": "text"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_show",
+        "toolArgs": "{\"select\":\"orders_by_week\",\"limit\":6}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "body": "order_week  | order_count | gross_revenue | distinct_customers\n2026-04-20  | 1894        | 184220.65     | 1377\n2026-04-27  | 2011        | 196430.10     | 1452\n2026-05-04  | 1978        | 190884.55     | 1419\n2026-05-11  | 2103        | 205117.80     | 1501\n2026-05-18  | 2240        | 219603.45     | 1588\n2026-05-25  | 1402        | 138920.20     | 1043\n(preview only — not materialized)",
+        "codeLang": "text"
+      },
+      {
+        "kind": "narration",
+        "agent": "test_writer",
+        "body": "Proposing schema.yml coverage for the new mart so it ships testable: not_null and unique on order_week, plus not_null on the three measures."
+      },
+      {
+        "kind": "code",
+        "agent": "test_writer",
+        "codeLang": "yaml",
+        "code": "models:\n  - name: orders_by_week\n    description: Orders aggregated to the week grain (order_count, gross_revenue, distinct_customers). Excludes cancelled orders from revenue.\n    columns:\n      - name: order_week\n        tests: [not_null, unique]\n      - name: order_count\n        tests: [not_null]\n      - name: gross_revenue\n        tests: [not_null]\n      - name: distinct_customers\n        tests: [not_null]"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "orders_by_week is authored, compiled, and previewed. It refs fct_orders (so it inherits all staging cleanup) and aggregates to the week with date_trunc. The preview shows a clean one-row-per-week grain, roughly 1,900 to 2,200 orders per full week and about 1.4k to 1.6k distinct customers; the trailing 2026-05-25 week is partial. Revenue excludes cancelled orders by design.\n\nThe validation subagent confirmed no fan-out and zero impact on existing models (it's a new leaf), and test_writer staged not_null and unique tests. Nothing was materialized — this was compile plus dbt_show only. You have a real, versioned orders_by_week.sql ready to commit. That's your Friday ship."
+      }
+    ]
+  },
+  "seNotes": [
+    "This is a press-enter fixed script. The three prompts are pre-typed in order (orient, discover, build). Don't free-type at the booth; hit enter and narrate what dbt Wizard does.",
+    "Lead with safe-by-default and say it out loud: across all three prompts there are zero materializations. 1.2 is a read-only SELECT against the warehouse, and 1.3 stops at compile plus dbt_show. The attendee cannot break prod from the tour.",
+    "After 1.1, point out the answer is grounded in the graph, not guessed. status, search, describe, and lineage gave it the real 13 models and the actual layer and domain grouping. Call out that tickets stops at stg_tickets and never reaches a mart, that's a real gap dbt Wizard surfaced.",
+    "After 1.3, emphasize that the worker authored a real .sql file with {{ ref('fct_orders') }} and a config block, not chat SQL. The {{ ref() }} means orders_by_week inherits every staging transform for free. The deliverable is a versioned artifact they commit, not a snippet they paste.",
+    "Highlight that the validation subagent fired on its own after the edit: SQL check, deferred run, prod-vs-dev comparison, and impact, including the grain check that confirms one row per week with no fan-out. That happens every time a model is edited, with no prompting.",
+    "Every capability shown is sourced from dbt Wizard itself: 17 MCP tools, the validation, explorer, worker, and test_writer subagents, read-only SELECT-only warehouse, and diff via dbt Cloud or deferred state. If asked something beyond that, say you'll confirm rather than invent."
+  ]
+}

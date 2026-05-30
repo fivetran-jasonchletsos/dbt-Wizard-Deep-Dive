@@ -1,0 +1,317 @@
+{
+  "slug": "scenario-segmentation",
+  "title": "Scenario: Customer Segmentation for Marketing",
+  "tagline": "From \"who do we target?\" to a versioned, tested segmentation model in one session.",
+  "summary": "Marketing asks which customers to target across VIPs, big spenders, and category-loyal buyers. dbt Wizard discovers the relevant models, validates grain against the warehouse, and ships two tested artifacts: a reusable int_customer_activity_180d activity layer (customer by store, 180-day window) and customer_segments (one row per customer with a segment label). The activity layer is built once and reused by future churn, RFM, and dashboard models instead of being a one-off audience query. Every model edit is checked by the validation subagent before anything materializes.",
+  "whyDifferent": "A general chat agent answers \"which customers should we target\" with a SQL string you paste once and lose. dbt Wizard answers it against the actual project graph and a read-only warehouse connection, then leaves behind committed, ref-linked, tested dbt models that downstream work inherits. It knows the real grain of stg_orders and dim_customers because it called describe and lineage, it confirmed the 180-day anchor date and category values from live warehouse rows, and it ran the validation subagent (SQL check, dbt run with defer, prod vs dev row comparison, impact) before materializing. You get an engineered artifact, not a conversation.",
+  "capabilities": [
+    {
+      "title": "Discovery",
+      "detail": "search across the project surfaces six relevant entity types (customers, orders, order items, products, plus staging and dim layers) so the audience is built on the right models, not guessed table names."
+    },
+    {
+      "title": "Schema understanding",
+      "detail": "describe confirms the grain and columns of stg_orders, stg_order_items, dim_customers, and dim_products; lineage maps how staging feeds the dims so the new models attach at the correct layer."
+    },
+    {
+      "title": "Data inspection",
+      "detail": "warehouse (read-only) pulls the max order date to anchor the 180-day window and the distinct category values from dim_products so the category-loyal rule uses real labels, not assumptions."
+    },
+    {
+      "title": "Model creation",
+      "detail": "the worker subagent authors int_customer_activity_180d (customer by store aggregates over 180 days) and customer_segments on top of it, using {{ ref() }} and CTEs; dbt_compile proves it parses before any run."
+    },
+    {
+      "title": "Validation",
+      "detail": "the validation subagent auto-fires after every model edit: SQL check, dbt run with --defer, prod vs dev row-count comparison, then impact to confirm no existing downstream model breaks."
+    },
+    {
+      "title": "Materialize",
+      "detail": "safe-by-default ordering: dbt_compile then dbt_show preview the audience size with zero runs, and dbt_build materializes only after validation passes."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "Marketing wants to target customers. What models do we have for customers, orders, and products?",
+      "intent": "Discover the entity surface before designing the audience.",
+      "invokes": [
+        "search",
+        "describe"
+      ]
+    },
+    {
+      "prompt": "What's the grain of stg_orders and dim_customers, and how do they connect?",
+      "intent": "Confirm join keys and grain before aggregating.",
+      "invokes": [
+        "describe",
+        "lineage"
+      ]
+    },
+    {
+      "prompt": "What's the latest order date, and what are the distinct product categories?",
+      "intent": "Anchor the 180-day window and ground the category-loyal rule in real values.",
+      "invokes": [
+        "warehouse"
+      ]
+    },
+    {
+      "prompt": "Build a reusable 180-day customer activity layer at customer-by-store grain that future models can reuse.",
+      "intent": "Author the intermediate activity model.",
+      "invokes": [
+        "worker",
+        "dbt_compile",
+        "dbt_test"
+      ]
+    },
+    {
+      "prompt": "On top of that, build customer_segments labeling VIP, big spender, and category-loyal, one row per customer.",
+      "intent": "Author the segment model and preview audience size before materializing.",
+      "invokes": [
+        "worker",
+        "dbt_compile",
+        "dbt_show"
+      ]
+    },
+    {
+      "prompt": "Before I materialize, what breaks downstream and does dev match prod?",
+      "intent": "Run validation and impact prior to build.",
+      "invokes": [
+        "dbt_test",
+        "impact",
+        "dbt_build"
+      ]
+    }
+  ],
+  "interaction": {
+    "scenario": "A marketing analyst has a vague ask from the campaigns team and an unfamiliar dbt project. They open dbt Wizard in the terminal and want a targetable audience that the rest of the team can reuse.",
+    "userPrompt": "Marketing wants a target list: VIPs, big spenders, and category-loyal customers. I don't know this project well. Build me something reusable, not a throwaway query.",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Marketing wants a target list: VIPs, big spenders, and category-loyal customers. I don't know this project well. Build me something reusable, not a throwaway query."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Good instinct on reusable. I'll discover the customer and order surface first, confirm grain against the warehouse, then ship two artifacts: a 180-day activity layer that future churn and RFM work can reuse, and a segment model on top of it. Starting with discovery."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "search",
+        "toolArgs": "{\"query\":\"customers orders order items products\",\"top_k\":12}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "system",
+        "body": "6 entity types matched: stg_customers (staging), stg_orders (staging), stg_order_items (staging), dim_customers (mart), dim_products (mart), plus fct_orders (mart, downstream). stg_customers -> dim_customers; stg_orders + stg_order_items -> fct_orders."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Six entity types. I'll build on the staging grain for the activity layer and join dim_customers / dim_products for labels. Confirming grain and join keys before I aggregate anything."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "describe",
+        "toolArgs": "{\"models\":[\"stg_orders\",\"stg_order_items\",\"dim_customers\",\"dim_products\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "system",
+        "code": "stg_orders        grain: order_id            cols: order_id, customer_id, store_id, order_date, order_total\nstg_order_items   grain: order_id+product_id cols: order_id, product_id, quantity, unit_price, line_amount\ndim_customers     grain: customer_id         cols: customer_id, customer_name, signup_date, region\ndim_products      grain: product_id          cols: product_id, product_name, category, brand_name",
+        "codeLang": "text"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "lineage",
+        "toolArgs": "{\"model\":\"fct_orders\",\"direction\":\"upstream\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "system",
+        "body": "fct_orders <- stg_orders (order grain), stg_order_items (line grain), dim_products (product attrs). customer_id flows from stg_orders; store_id present on stg_orders; category lives on dim_products."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Grain confirmed: orders are one row per order_id, items are order_id + product_id, customer_id and store_id both live on stg_orders. Category is on dim_products. Now I need two facts from the warehouse: the latest order date to anchor the 180-day window, and the real category values so the category-loyal rule isn't guessing. warehouse is read-only."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "warehouse",
+        "toolArgs": "{\"sql\":\"select max(order_date) as max_dt, count(*) as orders from {{ ref('stg_orders') }}\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "system",
+        "code": "max_dt      orders\n2026-05-27  4128190",
+        "codeLang": "text"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "warehouse",
+        "toolArgs": "{\"sql\":\"select category, count(*) n from {{ ref('dim_products') }} group by 1 order by 2 desc\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "system",
+        "code": "category       n\nElectronics    412\nApparel        388\nHome           351\nGrocery        290\nBeauty         204",
+        "codeLang": "text"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Anchor date 2026-05-27, so the window is order_date >= dateadd(day, -180, '2026-05-27'). Five real categories. I'll hand the activity-layer spec to the worker now: customer_id by store_id, 180 days, order count, total spend, distinct categories, and a top-category per customer so the segment model can read it directly."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "worker",
+        "toolArgs": "{\"task\":\"author int_customer_activity_180d at customer_id x store_id grain over trailing 180 days from max order_date; metrics: orders_180d, spend_180d, distinct_categories_180d, top_category; use ref(stg_orders), ref(stg_order_items), ref(dim_products)\"}"
+      },
+      {
+        "kind": "code",
+        "agent": "worker",
+        "body": "models/intermediate/int_customer_activity_180d.sql",
+        "code": "{{ config(materialized='view') }}\n\nwith orders as (\n    select order_id, customer_id, store_id, order_date, order_total\n    from {{ ref('stg_orders') }}\n    where order_date >= dateadd(day, -180, (select max(order_date) from {{ ref('stg_orders') }}))\n),\n\nlines as (\n    select oi.order_id, p.category, oi.line_amount\n    from {{ ref('stg_order_items') }} oi\n    inner join {{ ref('dim_products') }} p on oi.product_id = p.product_id\n),\n\norder_category as (\n    select o.customer_id, o.store_id, l.category,\n           sum(l.line_amount) as category_spend\n    from orders o\n    inner join lines l on o.order_id = l.order_id\n    group by 1, 2, 3\n),\n\ntop_cat as (\n    select customer_id, store_id, category as top_category,\n           row_number() over (partition by customer_id, store_id\n                              order by category_spend desc) as rn\n    from order_category\n)\n\nselect\n    o.customer_id,\n    o.store_id,\n    count(distinct o.order_id)        as orders_180d,\n    sum(o.order_total)               as spend_180d,\n    count(distinct oc.category)      as distinct_categories_180d,\n    max(case when t.rn = 1 then t.top_category end) as top_category\nfrom orders o\nleft join order_category oc on o.customer_id = oc.customer_id and o.store_id = oc.store_id\nleft join top_cat t        on o.customer_id = t.customer_id and o.store_id = t.store_id\ngroup by 1, 2",
+        "codeLang": "sql"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "dbt_compile",
+        "toolArgs": "{\"select\":\"int_customer_activity_180d\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "system",
+        "body": "Compiled OK. ref() resolved: stg_orders, stg_order_items, dim_products. No parse errors."
+      },
+      {
+        "kind": "narration",
+        "agent": "validation",
+        "body": "Validation subagent auto-fired after the model edit. Running SQL check, dbt run --defer against prod, prod vs dev row comparison, then impact."
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "code": "SQL check        pass\ndbt run --defer  pass (view built in dev)\nrow comparison   dev 71,204 rows  /  grain customer_id+store_id unique: pass (0 dupes)\nimpact           0 existing models reference this node (new leaf)",
+        "codeLang": "text"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Activity layer is clean: 71,204 customer-store rows, grain holds, nothing downstream depends on it yet so it's safe. Now the segment model on top. Rules: VIP = orders_180d >= 8 and spend_180d >= 2000; big spender = spend_180d >= 2000 but not VIP; category-loyal = distinct_categories_180d = 1 with at least 3 orders. One row per customer, so I roll store grain up to customer first."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "worker",
+        "toolArgs": "{\"task\":\"author customer_segments at customer_id grain reading int_customer_activity_180d; roll store->customer, label VIP / big_spender / category_loyal / standard; join dim_customers for name+region\"}"
+      },
+      {
+        "kind": "code",
+        "agent": "worker",
+        "body": "models/marts/customer_segments.sql",
+        "code": "{{ config(materialized='table') }}\n\nwith activity as (\n    select\n        customer_id,\n        sum(orders_180d)                  as orders_180d,\n        sum(spend_180d)                   as spend_180d,\n        max(distinct_categories_180d)     as distinct_categories_180d,\n        max(top_category)                 as top_category\n    from {{ ref('int_customer_activity_180d') }}\n    group by 1\n),\n\nlabeled as (\n    select\n        customer_id, orders_180d, spend_180d,\n        distinct_categories_180d, top_category,\n        case\n            when orders_180d >= 8 and spend_180d >= 2000 then 'VIP'\n            when spend_180d >= 2000                      then 'big_spender'\n            when distinct_categories_180d = 1 and orders_180d >= 3 then 'category_loyal'\n            else 'standard'\n        end as segment\n    from activity\n)\n\nselect\n    l.*,\n    c.customer_name,\n    c.region\nfrom labeled l\ninner join {{ ref('dim_customers') }} c on l.customer_id = c.customer_id",
+        "codeLang": "sql"
+      },
+      {
+        "kind": "narration",
+        "agent": "validation",
+        "body": "Edit detected. Validation subagent firing again on customer_segments."
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "code": "SQL check        pass\ndbt run --defer  pass\nrow comparison   dev 58,940 rows  /  grain customer_id unique: pass (0 dupes)\nimpact           0 downstream models affected",
+        "codeLang": "text"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Grain holds at one row per customer, 58,940 customers. Before materializing I'll preview the audience size with dbt_show so you see the segment counts at zero materialization cost."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "dbt_show",
+        "toolArgs": "{\"inline\":\"select segment, count(*) customers, round(avg(spend_180d)) avg_spend from {{ ref('customer_segments') }} group by 1 order by 2 desc\",\"limit\":10}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "system",
+        "code": "segment         customers  avg_spend\nstandard        41,205     612\nbig_spender      9,847    3,118\ncategory_loyal   4,602    1,044\nVIP              3,286    5,740",
+        "codeLang": "text"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "There's your targetable audience: 3,286 VIPs, 9,847 big spenders, 4,602 category-loyal. Validation already passed on both models, so materializing is safe. Building now."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "dbt_build",
+        "toolArgs": "{\"select\":\"int_customer_activity_180d customer_segments\",\"defer\":false}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "system",
+        "code": "int_customer_activity_180d  view   built  71,204 rows\ncustomer_segments           table  built  58,940 rows\ntests: 4 pass (unique customer_id, not_null segment, accepted_values segment, not_null customer_id)",
+        "codeLang": "text"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Shipped. Two committed, ref-linked, tested models. customer_segments gives marketing the audience now (3,286 VIP, 9,847 big spender, 4,602 category-loyal), and int_customer_activity_180d is the reusable layer underneath it. When the team next asks for churn risk, an RFM score, or a campaign dashboard, they build on the activity layer instead of re-deriving 180-day spend from raw orders. submit_summary handoff: 2 models, 4 tests passing, 0 downstream breakages, grain verified at customer_id."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "submit_summary",
+        "toolArgs": "{\"artifacts\":[\"int_customer_activity_180d\",\"customer_segments\"],\"tests_passing\":4,\"downstream_breakages\":0,\"audience\":{\"VIP\":3286,\"big_spender\":9847,\"category_loyal\":4602}}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "system",
+        "body": "Summary recorded. Handoff ready for review and PR."
+      }
+    ]
+  },
+  "seNotes": [
+    "All capability detail here is sourced from dbt Wizard itself (its 17 mcp__dbt_index__* tools and its validation, explorer, worker, and test_writer subagents) and is not invented beyond what the tool reports.",
+    "Lead with the reusable-artifact contrast: a general agent hands back a SQL string for this one audience; dbt Wizard leaves a versioned, tested int_customer_activity_180d layer that churn, RFM, and dashboard work all inherit. That is the durable-value moment for the room.",
+    "Point out the two grounding warehouse calls (max order date to anchor 180 days, distinct categories for the loyalty rule). The model is built against live values from a read-only connection, not assumptions, which is what makes the segment counts trustworthy.",
+    "Emphasize the validation subagent auto-firing after every model edit: SQL check, dbt run with defer, prod vs dev row comparison, and impact. The 0 downstream breakages line is the safety story for a skeptical data team.",
+    "Walk the safe-by-default ordering deliberately: dbt_compile, then dbt_show previews the audience size at zero materialization cost, and only then dbt_build. Nothing is written until validation passes and the analyst sees the numbers.",
+    "Use the grain checkpoints as proof of engineering rigor: activity layer verified unique at customer_id plus store_id, segment model verified unique at customer_id, both with zero duplicates before materialize."
+  ],
+  "stats": [
+    {
+      "count": 6,
+      "value": "6",
+      "label": "entity types discovered"
+    },
+    {
+      "value": "customer_segments",
+      "label": "artifact shipped",
+      "sub": "plus a reusable activity layer"
+    },
+    {
+      "value": "180-day",
+      "label": "activity window"
+    },
+    {
+      "count": 0,
+      "value": "0",
+      "label": "runs-to-preview"
+    }
+  ]
+}

@@ -326,5 +326,27 @@
         }
       ]
     }
+  ],
+  "stats": [
+    {
+      "count": 5,
+      "value": "5",
+      "label": "lab prompts"
+    },
+    {
+      "count": 2,
+      "value": "2",
+      "label": "scenarios"
+    },
+    {
+      "count": 20,
+      "value": "20",
+      "suffix": " min",
+      "label": "lab length"
+    },
+    {
+      "value": "The Builder Depot",
+      "label": "persona"
+    }
   ]
 }

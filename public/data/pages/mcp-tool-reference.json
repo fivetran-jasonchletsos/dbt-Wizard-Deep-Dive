@@ -676,5 +676,25 @@
       ],
       "returns": "Row-level and schema-level differences between the dev build and the production state for the node. Requires dbt Cloud or deferred state (--defer --state) as the production reference."
     }
+  ],
+  "stats": [
+    {
+      "count": 17,
+      "value": "17",
+      "label": "MCP tools"
+    },
+    {
+      "count": 8,
+      "value": "8",
+      "label": "categories"
+    },
+    {
+      "value": "mcp__dbt_index__",
+      "label": "one namespace"
+    },
+    {
+      "value": "DuckDB-backed",
+      "label": "structured calls"
+    }
   ]
 }

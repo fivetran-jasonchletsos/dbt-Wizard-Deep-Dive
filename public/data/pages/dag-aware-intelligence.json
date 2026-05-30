@@ -265,5 +265,21 @@
         }
       ]
     }
+  ],
+  "stats": [
+    {
+      "count": 4,
+      "value": "4",
+      "label": "severity levels",
+      "sub": "critical, high, medium, low"
+    },
+    {
+      "value": "column + node",
+      "label": "blast-radius scope"
+    },
+    {
+      "value": "depth-controlled",
+      "label": "lineage traversal"
+    }
   ]
 }

@@ -305,5 +305,21 @@
         }
       ]
     }
+  ],
+  "stats": [
+    {
+      "count": 5,
+      "value": "5",
+      "label": "dbt operations",
+      "sub": "build, run, compile, test, parse"
+    },
+    {
+      "value": "--defer",
+      "label": "deferred state"
+    },
+    {
+      "value": "auto",
+      "label": "index refresh on success"
+    }
   ]
 }

@@ -44,6 +44,15 @@ export interface Capability {
   detail: string;
 }
 
+export interface StatTile {
+  value: string;        // display value when not animated, e.g. "read-only"
+  count?: number;       // if set, animate 0 -> count on reveal
+  suffix?: string;      // appended after an animated count, e.g. "%", "x"
+  label: string;        // what the number is
+  sub?: string;         // small context line
+  accent?: string;      // CSS color var for the tile accent
+}
+
 export type ChartKind = 'bars' | 'compare';
 export interface ChartDatum {
   label: string;
@@ -78,6 +87,7 @@ export interface PageContent {
   whyDifferent: string;
   tools?: ToolDoc[];
   capabilities: Capability[];
+  stats?: StatTile[];
   charts?: ChartSpec[];
   examplePrompts: ExamplePrompt[];
   interaction: {

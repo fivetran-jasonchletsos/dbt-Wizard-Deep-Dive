@@ -1,6 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, Link, Outlet, useLocation } from 'react-router-dom';
 import { NAV } from '../nav';
+
+function ThemeToggle() {
+  const [theme, setTheme] = useState<'dark' | 'light'>(() =>
+    typeof document !== 'undefined' && document.documentElement.dataset.theme === 'light' ? 'light' : 'dark',
+  );
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    try {
+      localStorage.setItem('dwdd-theme', theme);
+    } catch {
+      /* ignore */
+    }
+  }, [theme]);
+  return (
+    <button
+      className="btn"
+      style={{ padding: '6px 12px' }}
+      onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+      aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+    >
+      {theme === 'dark' ? 'Light' : 'Dark'}
+    </button>
+  );
+}
 
 function NavTree({ onNavigate }: { onNavigate?: () => void }) {
   return (
@@ -25,6 +49,14 @@ function NavTree({ onNavigate }: { onNavigate?: () => void }) {
                 }
               >
                 {item.label}
+                {item.hol ? (
+                  <span
+                    className="chip chip-teal"
+                    style={{ fontSize: 8, padding: '1px 5px', marginLeft: 8, verticalAlign: 'middle' }}
+                  >
+                    HOL
+                  </span>
+                ) : null}
               </NavLink>
             ))}
           </div>
@@ -89,6 +121,14 @@ export default function Layout() {
           <span>Fivetran SE field reference</span>
           <span>dbt Wizard runs on dbt Labs dbt</span>
           <span style={{ color: 'var(--text-soft)' }}>Details sourced from dbt Wizard</span>
+          <a
+            href="https://fivetran-jasonchletsos.github.io/00-Intro-ODI-Demo/dbt-wizard/"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: 'var(--dbt)', fontWeight: 600, marginTop: 4 }}
+          >
+            Open the dbt Wizard app
+          </a>
         </div>
       </aside>
 
@@ -113,7 +153,10 @@ export default function Layout() {
               <Brand />
             </div>
           </div>
-          <span className="chip chip-dbt">Built by Fivetran</span>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <span className="chip chip-dbt">Built by Fivetran</span>
+          </div>
         </header>
 
         {open && (

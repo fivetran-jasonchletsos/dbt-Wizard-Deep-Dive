@@ -317,5 +317,27 @@
         }
       ]
     }
+  ],
+  "stats": [
+    {
+      "count": 17,
+      "value": "17",
+      "label": "MCP tools"
+    },
+    {
+      "count": 4,
+      "value": "4",
+      "label": "sub-agent roles"
+    },
+    {
+      "count": 10,
+      "value": "10",
+      "label": "agents in parallel"
+    },
+    {
+      "value": "15–20%",
+      "label": "fewer incidents",
+      "sub": "design-partner average"
+    }
   ]
 }

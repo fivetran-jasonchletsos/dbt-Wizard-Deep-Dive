@@ -1,0 +1,350 @@
+{
+  "slug": "scenario-schema-drift",
+  "title": "Scenario: Source Schema Drift",
+  "tagline": "Fivetran renamed brand to brand_name overnight; one staging fix takes the pipeline green",
+  "summary": "Authored the Scenario: Source Schema Drift page content. The scenario reproduces a red overnight build, traces it to a Fivetran source rename (raw.products.brand to brand_name), scopes the blast radius with search + impact, applies an alias-preserving fix in stg_products only (select brand_name as brand), and proves it green with auto-validation, compile, dbt_show preview, dbt_run, and dbt_test. Returned via StructuredOutput.",
+  "whyDifferent": "A general coding agent greps for \"brand\", offers a list of files, and leaves the blast-radius judgment and the warehouse truth to you. dbt Wizard works against three things a chat agent does not have: the live source schema (describe confirms the column is now brand_name, not a guess from a stale YAML), the dependency graph (impact enumerates the exact downstream consumers that would break), and a versioned, tested artifact (the fix compiles, previews real rows, and runs the affected lineage to a green dbt_test before it ships). The alias-preserving choice — brand_name as brand — is something only a graph-aware agent reaches for, because it can see that re-aliasing in one staging model contains the change instead of rippling renames through ten models.",
+  "capabilities": [
+    {
+      "title": "Reproduce and read the failure",
+      "detail": "dbt_run/dbt_build surfaces the actual compile and test error from the red pipeline, and the run results are read back as structured rows rather than scraped logs. The Wizard confirms the failure is a missing-column compile error in stg_products, not a transient warehouse blip."
+    },
+    {
+      "title": "Schema understanding against live source",
+      "detail": "describe queries the live source relation raw.products and confirms the column is now brand_name; status reconciles the indexed project against the warehouse so the drift is established as ground truth, not inferred from a stale schema.yml."
+    },
+    {
+      "title": "Blast-radius discovery",
+      "detail": "An explorer subagent runs search with a regex for brand across SQL, YAML, and tests in parallel, then impact walks the graph from stg_products to enumerate every downstream consumer — dim_products, fct_orders, and the brand-referencing marts — so the fix scope is provable, not estimated."
+    },
+    {
+      "title": "Alias-preserving model fix",
+      "detail": "A worker subagent authors the minimal change in stg_products: select brand_name as brand, keeping the column contract every downstream model already depends on. No edits to dim_products, fct_orders, or any mart. test_writer adds a not_null on the re-aliased column."
+    },
+    {
+      "title": "Auto-validation on the edit",
+      "detail": "The validation subagent fires the instant stg_products is edited — SQL check, dbt run --defer against production state, prod-vs-dev row comparison, and impact — and classifies the change non-breaking because the column set and grain are identical to prod."
+    },
+    {
+      "title": "Safe-by-default materialize",
+      "detail": "dbt_compile renders the product lineage, dbt_show previews real brand values before any write, then dbt_run and dbt_test build and green the affected models. Compile and preview always precede materialize; the warehouse path stays read-only until the build."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "The morning build is red. Reproduce the failure on the products lineage and tell me what actually broke.",
+      "intent": "Surface the real compile/test error from the failing run instead of guessing from the dbt Cloud red dot.",
+      "invokes": [
+        "mcp__dbt_index__dbt_build",
+        "mcp__dbt_index__status"
+      ]
+    },
+    {
+      "prompt": "Describe the live raw.products source — did Fivetran rename a column overnight?",
+      "intent": "Confirm the source drift against the warehouse rather than trusting the project's schema.yml.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__warehouse"
+      ]
+    },
+    {
+      "prompt": "Find every place we reference brand across SQL, YAML, and tests, and show me the full downstream blast radius from stg_products.",
+      "intent": "Enumerate the exact consumers that would break before choosing a fix strategy.",
+      "invokes": [
+        "mcp__dbt_index__search",
+        "mcp__dbt_index__impact"
+      ]
+    },
+    {
+      "prompt": "Fix it in staging only — alias brand_name back to brand in stg_products so nothing downstream has to change.",
+      "intent": "Contain the rename to one staging model with an alias-preserving select.",
+      "invokes": [
+        "mcp__dbt_index__changeset",
+        "mcp__dbt_index__dbt_compile"
+      ]
+    },
+    {
+      "prompt": "Preview the brand column from the fixed stg_products before we materialize anything.",
+      "intent": "See real rows from the compiled model to confirm the alias resolves before any write.",
+      "invokes": [
+        "mcp__dbt_index__dbt_show",
+        "mcp__dbt_index__dbt_compile"
+      ]
+    },
+    {
+      "prompt": "Build the affected lineage and run its tests — I want it green before standup.",
+      "intent": "Materialize the contained fix and prove the downstream marts pass.",
+      "invokes": [
+        "mcp__dbt_index__dbt_run",
+        "mcp__dbt_index__dbt_test"
+      ]
+    }
+  ],
+  "interaction": {
+    "scenario": "It is 8:40am. The overnight dbt Cloud job is red, standup is at 9:00, and the only signal is a failed products build. Fivetran's schema-drift handling renamed raw.products.brand to brand_name during the sync. The SE asks dbt Wizard to reproduce the failure and fix it before the meeting.",
+    "userPrompt": "The morning products build is red and standup is in twenty minutes. Reproduce the failure, find out what changed, and fix it with the smallest possible blast radius.",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "The morning products build is red and standup is in twenty minutes. Reproduce the failure, find out what changed, and fix it with the smallest possible blast radius."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Twenty minutes is plenty. I'll reproduce the failure first so we're fixing the real error, not the symptom, then establish what drifted against the live source, scope the blast radius on the graph, and apply the narrowest fix. Building the products lineage now."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_build",
+        "toolArgs": "{\"select\":\"+dim_products\",\"defer\":true,\"state\":\"target-prod/\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "stg_products fails to compile: column brand does not exist on the source.",
+        "code": "{\"results\":[{\"node\":\"stg_products\",\"status\":\"error\",\"message\":\"Compilation/Database Error: column \\\"brand\\\" does not exist in relation raw.products\"},{\"node\":\"dim_products\",\"status\":\"skipped\"},{\"node\":\"fct_orders\",\"status\":\"skipped\"}],\"errors\":1,\"skipped\":2,\"elapsed\":3.1}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Confirmed: this is a missing-column error at the source, surfacing in stg_products and skipping everything downstream. It is not a transient warehouse issue. The error names raw.products.brand specifically, which points at source drift. Reconciling the indexed project against the warehouse to be sure."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__status",
+        "toolArgs": "{\"check_warehouse\":true}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Index fresh; one source relation drifted vs the project's declared schema.",
+        "code": "{\"index_epoch\":\"2026-05-30T08:41Z\",\"models\":214,\"sources\":37,\"warehouse_drift\":[{\"source\":\"raw.products\",\"declared\":[\"brand\"],\"live\":[\"brand_name\"],\"status\":\"column_renamed\"}]}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "There it is. The project still declares raw.products.brand, but the live relation has brand_name. This is overnight Fivetran schema-drift handling renaming the source column. Let me describe the live source to lock down the exact new shape before I touch anything."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"relation\":\"raw.products\",\"live\":true}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Live source: brand is gone, brand_name present, same type.",
+        "code": "{\"relation\":\"raw.products\",\"columns\":[{\"name\":\"product_id\",\"type\":\"varchar\"},{\"name\":\"product_name\",\"type\":\"varchar\"},{\"name\":\"brand_name\",\"type\":\"varchar\"},{\"name\":\"category\",\"type\":\"varchar\"},{\"name\":\"_fivetran_synced\",\"type\":\"timestamp_tz\"}],\"row_count\":48211}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Ground truth established from the warehouse, not from a stale YAML: brand_name replaced brand, same varchar type, 48,211 rows intact. Now I need the blast radius before I choose a fix. Spawning an explorer to regex-search brand across SQL, YAML, and tests in parallel while I walk the graph downstream of stg_products."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "explorer",
+        "toolName": "mcp__dbt_index__search",
+        "toolArgs": "{\"pattern\":\"\\\\bbrand\\\\b\",\"regex\":true,\"in\":[\"sql\",\"yaml\",\"tests\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "explorer",
+        "codeLang": "json",
+        "body": "11 references to brand across 7 files; only one touches the source.",
+        "code": "{\"matches\":[{\"file\":\"models/staging/stg_products.sql\",\"line\":6,\"text\":\"brand,\",\"refs_source\":true},{\"file\":\"models/staging/_staging.yml\",\"line\":42,\"text\":\"- name: brand\"},{\"file\":\"models/marts/dim_products.sql\",\"line\":9,\"text\":\"brand,\"},{\"file\":\"models/marts/fct_orders.sql\",\"line\":21,\"text\":\"p.brand\"},{\"file\":\"models/marts/mart_brand_performance.sql\",\"line\":4,\"text\":\"group by brand\"},{\"file\":\"models/marts/mart_category_brand.sql\",\"line\":7,\"text\":\"brand\"}],\"files\":7,\"total\":11,\"source_touching\":1}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__impact",
+        "toolArgs": "{\"node\":\"stg_products\",\"column\":\"brand\",\"direction\":\"downstream\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Column-level lineage: brand flows from stg_products into 4 downstream consumers.",
+        "code": "{\"node\":\"stg_products\",\"column\":\"brand\",\"downstream\":[{\"node\":\"dim_products\",\"column\":\"brand\"},{\"node\":\"fct_orders\",\"column\":\"brand\"},{\"node\":\"mart_brand_performance\",\"column\":\"brand\"},{\"node\":\"mart_category_brand\",\"column\":\"brand\"}],\"consumer_count\":4,\"exposures\":2}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "This is the decision point. Only stg_products actually reads the source column; the other 10 references consume the alias brand that staging publishes. I have two options: rename brand to brand_name everywhere (5+ models, 2 exposures, a breaking column-contract change) or re-alias once in staging so the published contract stays brand. The graph makes the choice obvious — contain it. I'll have a worker write select brand_name as brand in stg_products. Nothing downstream changes."
+      },
+      {
+        "kind": "code",
+        "agent": "worker",
+        "codeLang": "sql",
+        "code": "with source as (\n    select * from {{ source('raw', 'products') }}\n),\n\nrenamed as (\n    select\n        product_id,\n        product_name,\n        -- Fivetran renamed the source column brand -> brand_name (2026-05-30).\n        -- Alias it back to brand to preserve the downstream column contract.\n        brand_name as brand,\n        category\n    from source\n)\n\nselect * from renamed"
+      },
+      {
+        "kind": "narration",
+        "agent": "test_writer",
+        "body": "Updating the staging schema so the source declares brand_name and the model still exposes brand. Adding a not_null on the re-aliased brand so the contract is enforced going forward."
+      },
+      {
+        "kind": "code",
+        "agent": "test_writer",
+        "codeLang": "yaml",
+        "code": "sources:\n  - name: raw\n    tables:\n      - name: products\n        columns:\n          - name: brand_name   # renamed by Fivetran 2026-05-30\n\nmodels:\n  - name: stg_products\n    columns:\n      - name: brand           # alias preserved for downstream\n        tests:\n          - not_null"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Model edited — the validation subagent auto-spawns. I did not ask it to; the edit triggers it. It runs the fixed sequence: SQL check, dbt run --defer against prod, prod-vs-dev row comparison, then impact. Watching it confirm the contract is unchanged."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "validation",
+        "toolName": "mcp__dbt_index__warehouse",
+        "toolArgs": "{\"sql\":\"select count(*) as rows, count(distinct product_id) as keys, count(brand) as non_null_brand from dev.stg_products\",\"limit\":1}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "codeLang": "json",
+        "body": "Grain holds at one row per product_id; brand fully populated.",
+        "code": "{\"rows\":48211,\"keys\":48211,\"non_null_brand\":48211}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "validation",
+        "toolName": "mcp__dbt_index__dbt_run",
+        "toolArgs": "{\"select\":\"stg_products\",\"defer\":true,\"state\":\"target-prod/\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "codeLang": "json",
+        "body": "Deferred build succeeds; upstreams resolved from prod state.",
+        "code": "{\"node\":\"stg_products\",\"status\":\"success\",\"rows\":48211,\"exec_seconds\":2.2,\"deferred_upstreams\":1}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "validation",
+        "toolName": "mcp__dbt_index__diff",
+        "toolArgs": "{\"node\":\"stg_products\",\"state\":\"target-prod/\",\"defer\":true,\"primary_key\":\"product_id\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "codeLang": "json",
+        "body": "Non-breaking: identical column set, identical grain, zero row delta vs prod.",
+        "code": "{\"rows_added\":0,\"rows_removed\":0,\"rows_changed\":0,\"columns_added\":[],\"columns_removed\":[],\"grain_changed\":false,\"classification\":\"non-breaking\"}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Validation signs off non-breaking: stg_products publishes the exact same brand column it did yesterday, same 48,211 rows, same grain. Because the contract is preserved, the downstream impact is none. Before I materialize anything I'll compile the product lineage and preview real brand values — compile and preview always precede a write."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_compile",
+        "toolArgs": "{\"select\":\"stg_products+\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "All 5 nodes in the product lineage compile clean.",
+        "code": "{\"compiled\":[\"stg_products\",\"dim_products\",\"fct_orders\",\"mart_brand_performance\",\"mart_category_brand\"],\"errors\":0}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_show",
+        "toolArgs": "{\"select\":\"stg_products\",\"limit\":5,\"columns\":[\"product_id\",\"brand\",\"category\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Real rows: brand resolves correctly from brand_name.",
+        "code": "{\"rows\":[{\"product_id\":\"P-10042\",\"brand\":\"Aldercrest\",\"category\":\"Outdoor\"},{\"product_id\":\"P-10043\",\"brand\":\"Northwind\",\"category\":\"Apparel\"},{\"product_id\":\"P-10051\",\"brand\":\"Verity\",\"category\":\"Home\"}]}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Preview confirms the alias resolves to real brand values. Materializing the affected lineage and running its tests now."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_run",
+        "toolArgs": "{\"select\":\"stg_products+\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "All 5 models build green.",
+        "code": "{\"results\":[{\"node\":\"stg_products\",\"status\":\"success\"},{\"node\":\"dim_products\",\"status\":\"success\"},{\"node\":\"fct_orders\",\"status\":\"success\"},{\"node\":\"mart_brand_performance\",\"status\":\"success\"},{\"node\":\"mart_category_brand\",\"status\":\"success\"}],\"errors\":0,\"elapsed\":18.6}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_test",
+        "toolArgs": "{\"select\":\"stg_products+\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Every test on the lineage passes, including the new not_null on brand.",
+        "code": "{\"tests_run\":19,\"passed\":19,\"failed\":0,\"new\":[\"not_null_stg_products_brand\"]}"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Green with twelve minutes to spare. Root cause: Fivetran's overnight schema-drift handling renamed raw.products.brand to brand_name, and stg_products was the only model reading the source column directly, so the whole products lineage compiled red. The fix is one line in one file — select brand_name as brand in stg_products — which preserves the brand column contract that dim_products, fct_orders, mart_brand_performance, and mart_category_brand all depend on. Zero downstream models changed. The auto-spawned validation subagent classified it non-breaking (identical column set, identical grain, zero row delta vs prod), I compiled and previewed real rows before writing, then built and tested the lineage: 5 models green, 19 of 19 tests passing including a new not_null guarding the alias. This is the Fivetran path end to end — Fivetran moved and reconciled the source, dbt transforms it, and dbt Wizard contained the drift to a single tested staging change. Handing off the impact analysis via submit_summary so you can open the PR after standup."
+      }
+    ]
+  },
+  "seNotes": [
+    "All product detail here is sourced from dbt Wizard itself — the 17 mcp__dbt_index__ tools, the auto-firing validation subagent sequence (SQL check, dbt run --defer, prod-vs-dev comparison, impact), and the explorer/worker/test_writer subagents. Do not invent tools or steps beyond that set.",
+    "The money moment is the alias-preserving fix: select brand_name as brand in one staging model. Land it by first showing impact enumerating four downstream consumers plus two exposures, then choosing to re-alias instead of rename. A graph-aware agent contains the change; a grep-and-replace agent ripples a breaking rename through every model.",
+    "Lead with reproduce-then-fix. dbt_build surfaces the actual compile error naming raw.products.brand, and status with check_warehouse reconciles the project against the live relation. That is grounded failure analysis, not reading a red dot in dbt Cloud.",
+    "describe against the live source is the proof the drift is real: brand is gone, brand_name is present, same varchar, 48,211 rows. A chat agent reading schema.yml would still believe the column is brand.",
+    "Stress safe-by-default: dbt_compile renders the lineage and dbt_show previews real brand values before a single materialize. The warehouse tool is read-only the whole time; nothing writes until the explicit dbt_run.",
+    "Tie it to the Fivetran story: Fivetran detected and reconciled the source rename, dbt transforms it, and dbt Wizard contained the blast radius to one tested staging file before the PR. One governed path from source drift to a green, reviewed change."
+  ],
+  "stats": [
+    {
+      "value": "214",
+      "count": 214,
+      "label": "Models indexed",
+      "sub": "products lineage isolated in seconds"
+    },
+    {
+      "value": "stg_products",
+      "label": "Files changed",
+      "sub": "one staging model, one line"
+    },
+    {
+      "value": "4",
+      "count": 4,
+      "label": "Downstream consumers protected",
+      "sub": "dim_products, fct_orders, 2 marts untouched"
+    },
+    {
+      "value": "0",
+      "count": 0,
+      "label": "Runs before preview",
+      "sub": "compile + dbt_show before any write"
+    },
+    {
+      "value": "non-breaking",
+      "label": "Validation verdict",
+      "sub": "identical column set and grain vs prod"
+    }
+  ]
+}

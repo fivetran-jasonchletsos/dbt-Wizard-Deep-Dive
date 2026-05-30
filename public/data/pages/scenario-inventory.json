@@ -1,0 +1,331 @@
+{
+  "slug": "scenario-inventory",
+  "title": "Scenario: Inventory Misallocation",
+  "tagline": "dbt Wizard discovers, inspects, builds, and validates a store-by-item variance model end to end",
+  "summary": "Operations suspects inventory was misallocated across stores before a sale and wants the discrepancy quantified at the store-by-item level. dbt Wizard walks the full path on the live dbt project: discovers the inventory, store, item, and shipment models, reads their grain from the graph, confirms a real misallocation signal against the warehouse, then has the worker subagent author a new model, inventory_shipment_variance, at store_id by item_id grain. Every edit auto-fires the validation subagent, and nothing materializes until a deterministic compile-plus-preview passes. The scenario ships gold.inventory_shipment_variance — a tested, versioned artifact reusable for every future sale event, not a one-off chat query.",
+  "whyDifferent": "A general AI agent answers this with chat SQL it cannot ground: it has no map of which models exist, no read of their actual grain, and no way to confirm the misallocation against live rows, so it guesses a query and you trust it. dbt Wizard works from the dbt graph and the warehouse together. It discovers the real inventory and shipment models, reads grain and lineage from the index, confirms the variance signal on a live slice, then authors a model that lands as a tested node in the DAG with the validation subagent auto-checking grain and downstream impact. The deliverable is a versioned, tested artifact in the project that any future sale can rerun, not a SELECT pasted into Slack.",
+  "capabilities": [
+    {
+      "title": "Discovery — find the inventory surface",
+      "detail": "status reports the indexed project and freshness; search surfaces every inventory, store, item, and shipment model by name and description so the SE starts from what exists rather than guessing table names. Returns stg_inventory_snapshots, stg_shipments, stg_stores, dim_stores, dim_items, and fct_inventory_daily as the working set."
+    },
+    {
+      "title": "Schema understanding — read the grain from the graph",
+      "detail": "describe returns columns, types, and declared grain for stg_inventory_snapshots, dim_stores, and stg_shipments; lineage walks upstream and downstream so the new model's grain (store_id by item_id) is chosen from real keys, not assumed. This is graph-grounded, not text-grepped."
+    },
+    {
+      "title": "Data inspection — confirm the signal in the warehouse",
+      "detail": "warehouse runs read-only SELECT-only SQL to confirm a misallocation signal on a slice — shipped quantity per store versus on-hand snapshot — before a single line of model SQL is written. The tool rejects DML/DDL at the boundary, so inspection is always safe."
+    },
+    {
+      "title": "Model creation — worker authors the artifact",
+      "detail": "The worker subagent authors inventory_shipment_variance at store_id by item_id grain with proper {{ ref() }} dependencies, a config block, and pre-aggregated CTEs over stg_shipments and stg_inventory_snapshots joined to dim_stores and dim_items. The grain is enforced in SQL before it is ever materialized."
+    },
+    {
+      "title": "Validation — auto-fired on every edit",
+      "detail": "The validation subagent spawns the instant the model is written — no manual trigger. It runs a SQL grain check, a deferred build (dbt run --defer --state target-prod/), a prod-vs-dev row comparison, and impact analysis, returning a breaking vs non-breaking verdict before any PR."
+    },
+    {
+      "title": "Materialize — safe by default",
+      "detail": "Nothing materializes on the tour without proof. dbt_compile renders deterministic SQL and dbt_show previews real rows from the compiled query; only after the preview and validation pass does dbt_build land gold.inventory_shipment_variance. Compile and preview always precede materialize."
+    }
+  ],
+  "examplePrompts": [
+    {
+      "prompt": "Operations thinks inventory got misallocated across stores before the sale. What models do we have for inventory, stores, items, and shipments?",
+      "intent": "Discover the working set of models before writing anything, grounded in the indexed project rather than guessed names.",
+      "invokes": [
+        "mcp__dbt_index__status",
+        "mcp__dbt_index__search"
+      ]
+    },
+    {
+      "prompt": "What's the grain of stg_inventory_snapshots and stg_shipments, and how do they connect to dim_stores and dim_items?",
+      "intent": "Read column-level schema and lineage so the new model's grain is chosen from real keys.",
+      "invokes": [
+        "mcp__dbt_index__describe",
+        "mcp__dbt_index__lineage"
+      ]
+    },
+    {
+      "prompt": "Before we model anything, show me shipped units versus on-hand snapshot per store for item I-4471 last week — is the signal real?",
+      "intent": "Confirm a misallocation signal on a live slice with read-only SQL before committing to a model.",
+      "invokes": [
+        "mcp__dbt_index__warehouse"
+      ]
+    },
+    {
+      "prompt": "Build a model called inventory_shipment_variance at store by item grain: shipped quantity, on-hand quantity, and the variance between them.",
+      "intent": "Have the worker subagent author the artifact at store_id by item_id grain with refs and config.",
+      "invokes": [
+        "mcp__dbt_index__dbt_compile",
+        "mcp__dbt_index__dbt_run",
+        "mcp__dbt_index__diff"
+      ]
+    },
+    {
+      "prompt": "Compile inventory_shipment_variance and preview the top variance rows, but do not materialize it yet.",
+      "intent": "Deterministic compile plus real-row preview before any materialize, safe by default.",
+      "invokes": [
+        "mcp__dbt_index__dbt_compile",
+        "mcp__dbt_index__dbt_show"
+      ]
+    },
+    {
+      "prompt": "What downstream consumers does this touch, and is it safe to materialize gold.inventory_shipment_variance?",
+      "intent": "Check impact and run the validation gate before landing the new node, then materialize.",
+      "invokes": [
+        "mcp__dbt_index__impact",
+        "mcp__dbt_index__dbt_build"
+      ]
+    }
+  ],
+  "stats": [
+    {
+      "value": "6",
+      "count": 6,
+      "label": "Models discovered",
+      "sub": "inventory, store, item, shipment surface from search"
+    },
+    {
+      "value": "gold.inventory_shipment_variance",
+      "label": "Artifact shipped",
+      "sub": "store_id by item_id grain, tested and versioned"
+    },
+    {
+      "value": "0",
+      "count": 0,
+      "label": "Runs-to-preview",
+      "sub": "dbt_compile + dbt_show, never materialize on tour"
+    },
+    {
+      "value": "3",
+      "count": 3,
+      "label": "Downstream consumers protected",
+      "sub": "validation impact analysis names them pre-PR"
+    },
+    {
+      "value": "read-only",
+      "label": "Warehouse access",
+      "sub": "SELECT-only, DML/DDL rejected at the boundary"
+    }
+  ],
+  "interaction": {
+    "scenario": "Operations flagged that inventory looked misallocated across stores in the days before a promotional sale and wants the discrepancy quantified store by store, item by item. An SE opens dbt Wizard against the live retail dbt project and walks the whole path from discovery to a shipped, validated artifact.",
+    "userPrompt": "Operations thinks inventory got misallocated across stores before the sale. I need to quantify it at the store-by-item level. What do we have to work with?",
+    "events": [
+      {
+        "kind": "user",
+        "agent": "user",
+        "body": "Operations thinks inventory got misallocated across stores before the sale. I need to quantify it at the store-by-item level. What do we have to work with?"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Starting with discovery against the indexed project so we work from real models, not assumed names. Checking index freshness, then searching the inventory, store, item, and shipment surface."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__status",
+        "toolArgs": "{}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Project indexed and fresh.",
+        "code": "{\"project\":\"retail_analytics\",\"models_indexed\":214,\"sources\":31,\"index_epoch\":\"2026-05-30T13:02Z\",\"warehouse\":\"snowflake (read-only)\"}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__search",
+        "toolArgs": "{\"query\":\"inventory store item shipment allocation\",\"limit\":8}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Six models cover the surface.",
+        "code": "{\"matches\":[{\"model\":\"stg_inventory_snapshots\",\"layer\":\"staging\",\"desc\":\"daily on-hand qty per store/item\"},{\"model\":\"stg_shipments\",\"layer\":\"staging\",\"desc\":\"line-level units shipped to stores\"},{\"model\":\"stg_stores\",\"layer\":\"staging\",\"desc\":\"raw store attributes\"},{\"model\":\"dim_stores\",\"layer\":\"marts\",\"desc\":\"conformed store dimension\"},{\"model\":\"dim_items\",\"layer\":\"marts\",\"desc\":\"conformed item dimension\"},{\"model\":\"fct_inventory_daily\",\"layer\":\"marts\",\"desc\":\"daily inventory fact, store x item x date\"}]}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Good working set. Shipments tell us what was sent to each store, snapshots tell us what was on hand. Misallocation is the gap between them per store and item. Before I model that, I need the real grain of the two inputs and how they tie to the store and item dimensions. Spawning the explorer to read schema and lineage in parallel."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "explorer",
+        "toolName": "mcp__dbt_index__describe",
+        "toolArgs": "{\"models\":[\"stg_inventory_snapshots\",\"stg_shipments\",\"dim_stores\"]}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "explorer",
+        "codeLang": "json",
+        "body": "Grain and keys confirmed.",
+        "code": "{\"stg_inventory_snapshots\":{\"grain\":\"store_id + item_id + snapshot_date\",\"cols\":[\"store_id\",\"item_id\",\"snapshot_date\",\"on_hand_qty\"]},\"stg_shipments\":{\"grain\":\"shipment_line_id\",\"cols\":[\"shipment_line_id\",\"store_id\",\"item_id\",\"shipped_qty\",\"ship_date\"]},\"dim_stores\":{\"grain\":\"store_id\",\"cols\":[\"store_id\",\"store_name\",\"region\",\"brand\"]}}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "explorer",
+        "toolName": "mcp__dbt_index__lineage",
+        "toolArgs": "{\"model\":\"stg_shipments\",\"direction\":\"both\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "explorer",
+        "codeLang": "json",
+        "body": "Shipments feed fct_inventory_daily; dims are conformed.",
+        "code": "{\"upstream\":[\"source.raw.shipments\"],\"downstream\":[\"fct_inventory_daily\"],\"joins_to\":[\"dim_stores.store_id\",\"dim_items.item_id\"]}"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Schema settles the design. Snapshots are store_id by item_id by date, shipments are line-level and aggregate to store_id by item_id. The natural variance grain is store_id by item_id. Before writing any SQL, I'll confirm the signal is real on one slice with read-only warehouse SQL."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__warehouse",
+        "toolArgs": "{\"sql\":\"select s.store_id, dim.store_name, sum(s.shipped_qty) as shipped, max(i.on_hand_qty) as on_hand from analytics.stg_shipments s join analytics.stg_inventory_snapshots i on s.store_id=i.store_id and s.item_id=i.item_id join analytics.dim_stores dim on dim.store_id=s.store_id where s.item_id='I-4471' and s.ship_date >= '2026-05-19' group by 1,2 order by shipped desc\",\"limit\":6}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Signal confirmed: shipped far exceeds on-hand at two stores.",
+        "code": "[{\"store_id\":\"S-0114\",\"store_name\":\"Brooklyn Flatlands\",\"shipped\":1840,\"on_hand\":210},{\"store_id\":\"S-0207\",\"store_name\":\"Queens Astoria\",\"shipped\":1620,\"on_hand\":185},{\"store_id\":\"S-0061\",\"store_name\":\"Newark Ironbound\",\"shipped\":120,\"on_hand\":540}]"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Confirmed. For item I-4471, two stores received roughly 9x their on-hand snapshot while a third was starved with shipped well below on-hand — a textbook misallocation signal. That justifies a reusable model. Handing the spec to the worker: variance at store_id by item_id, shipped minus on-hand, joined to the store and item dimensions for context."
+      },
+      {
+        "kind": "narration",
+        "agent": "worker",
+        "body": "Authoring inventory_shipment_variance. I'll pre-aggregate shipments to store_id by item_id so the join to the snapshot grain stays 1:1, take the latest on-hand snapshot per store and item, then compute shipped_qty minus on_hand_qty as the variance. Marts config, table materialization, refs throughout."
+      },
+      {
+        "kind": "code",
+        "agent": "worker",
+        "codeLang": "sql",
+        "code": "{{ config(materialized='table', schema='gold', tags=['inventory','variance']) }}\n\nwith shipments as (\n  select\n    store_id,\n    item_id,\n    sum(shipped_qty) as shipped_qty\n  from {{ ref('stg_shipments') }}\n  group by 1, 2\n),\n\nlatest_snapshot as (\n  select\n    store_id,\n    item_id,\n    on_hand_qty,\n    row_number() over (\n      partition by store_id, item_id\n      order by snapshot_date desc\n    ) as rn\n  from {{ ref('stg_inventory_snapshots') }}\n),\n\non_hand as (\n  select store_id, item_id, on_hand_qty\n  from latest_snapshot\n  where rn = 1\n)\n\nselect\n  sh.store_id,\n  sh.item_id,\n  st.store_name,\n  st.region,\n  it.item_name,\n  sh.shipped_qty,\n  coalesce(oh.on_hand_qty, 0)            as on_hand_qty,\n  sh.shipped_qty - coalesce(oh.on_hand_qty, 0) as shipment_variance\nfrom shipments sh\nleft join on_hand oh\n  on sh.store_id = oh.store_id\n and sh.item_id = oh.item_id\nleft join {{ ref('dim_stores') }} st on st.store_id = sh.store_id\nleft join {{ ref('dim_items') }}  it on it.item_id  = sh.item_id"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Model written. The validation subagent auto-spawns on the edit — I do not have to ask. It runs the fixed gate: SQL grain check, deferred build against prod, prod-vs-dev comparison, then impact."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "validation",
+        "toolName": "mcp__dbt_index__warehouse",
+        "toolArgs": "{\"sql\":\"select count(*) as rows, count(distinct store_id||'-'||item_id) as distinct_grain from dev_gold.inventory_shipment_variance\",\"limit\":1}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "codeLang": "json",
+        "body": "Grain holds: rows equal distinct store_id by item_id.",
+        "code": "{\"rows\": 48217, \"distinct_grain\": 48217}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "validation",
+        "toolName": "mcp__dbt_index__dbt_run",
+        "toolArgs": "{\"select\":\"inventory_shipment_variance\",\"defer\":true,\"state\":\"target-prod/\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "codeLang": "json",
+        "body": "Built in dev with four deferred upstreams.",
+        "code": "{\"node\":\"inventory_shipment_variance\",\"status\":\"success\",\"rows\":48217,\"exec_seconds\":5.9,\"deferred_upstreams\":4}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "validation",
+        "toolName": "mcp__dbt_index__impact",
+        "toolArgs": "{\"node\":\"inventory_shipment_variance\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "validation",
+        "codeLang": "json",
+        "body": "New leaf node; no existing consumers broken.",
+        "code": "{\"new_node\":true,\"downstream_consumers\":[],\"shares_sources_with\":[\"fct_inventory_daily\"],\"classification\":\"non-breaking\"}"
+      },
+      {
+        "kind": "narration",
+        "agent": "validation",
+        "body": "Gate result: grain is clean at 48,217 rows with one row per store_id by item_id, deferred build succeeded, and as a new leaf node nothing downstream breaks. Non-breaking. The dim_stores join selects store_name and region with no alias drift, so the conformed dimension is untouched. Handing back via submit_summary."
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Validation passed, but I will not materialize on the tour without proof. Safe by default means a deterministic compile and a real-row preview first. Compiling, then previewing the worst offenders by variance."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_compile",
+        "toolArgs": "{\"select\":\"inventory_shipment_variance\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Refs resolved; deterministic SQL rendered.",
+        "code": "{\"node\":\"inventory_shipment_variance\",\"compiled\":true,\"refs_resolved\":[\"stg_shipments\",\"stg_inventory_snapshots\",\"dim_stores\",\"dim_items\"],\"target_relation\":\"gold.inventory_shipment_variance\"}"
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_show",
+        "toolArgs": "{\"select\":\"inventory_shipment_variance\",\"limit\":4,\"order_by\":\"shipment_variance desc\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Top variance rows match the slice we inspected.",
+        "code": "[{\"store_id\":\"S-0114\",\"store_name\":\"Brooklyn Flatlands\",\"item_name\":\"Court Sneaker\",\"shipped_qty\":1840,\"on_hand_qty\":210,\"shipment_variance\":1630},{\"store_id\":\"S-0207\",\"store_name\":\"Queens Astoria\",\"item_name\":\"Court Sneaker\",\"shipped_qty\":1620,\"on_hand_qty\":185,\"shipment_variance\":1435},{\"store_id\":\"S-0061\",\"store_name\":\"Newark Ironbound\",\"item_name\":\"Court Sneaker\",\"shipped_qty\":120,\"on_hand_qty\":540,\"shipment_variance\":-420}]"
+      },
+      {
+        "kind": "narration",
+        "agent": "wizard",
+        "body": "Preview matches the manual slice exactly: positive variance is over-allocated, negative is starved. The compiled SQL is deterministic and the rows are real. Now, and only now, I'll materialize."
+      },
+      {
+        "kind": "tool_call",
+        "agent": "wizard",
+        "toolName": "mcp__dbt_index__dbt_build",
+        "toolArgs": "{\"select\":\"inventory_shipment_variance\"}"
+      },
+      {
+        "kind": "tool_result",
+        "agent": "wizard",
+        "codeLang": "json",
+        "body": "Materialized and tested.",
+        "code": "{\"node\":\"inventory_shipment_variance\",\"status\":\"success\",\"relation\":\"gold.inventory_shipment_variance\",\"rows\":48217,\"tests\":{\"unique_store_id_item_id\":\"pass\",\"not_null_shipment_variance\":\"pass\",\"relationship_dim_stores\":\"pass\"},\"failed\":0}"
+      },
+      {
+        "kind": "final",
+        "agent": "wizard",
+        "body": "Done. I discovered the six-model inventory surface with search, read the real grain from describe and lineage, confirmed the misallocation signal on a live slice before writing a line of SQL, and the worker authored inventory_shipment_variance at store_id by item_id grain. The validation subagent auto-fired on the edit and cleared it non-breaking at 48,217 rows with grain held one row per store and item. I compiled and previewed real rows before materializing, never running it blind on the tour. The result is gold.inventory_shipment_variance, a tested and versioned node in the project: shipped versus on-hand variance per store and item, with Brooklyn Flatlands and Queens Astoria over-allocated on the Court Sneaker and Newark Ironbound starved. Operations has its answer, and this artifact reruns for every future sale event. This is a validated, in-warehouse change landing as part of the Fivetran pipeline that moved the data and the dbt project that transforms it."
+      }
+    ]
+  },
+  "seNotes": [
+    "All dbt Wizard detail here is sourced from dbt Wizard itself: the 17 mcp__dbt_index__ tools, the auto-firing validation subagent and its fixed gate, the explorer and worker subagents, submit_summary handoff, and the safe-by-default compile-plus-preview-before-materialize behavior. Do not invent capabilities beyond these.",
+    "Lead with the arc, not a single trick: discovery, schema, live confirmation, authoring, auto-validation, then materialize. The story is that dbt Wizard does the analyst's whole workflow grounded in the graph and the warehouse, where a general agent only writes chat SQL it cannot verify.",
+    "The strongest grounding beat is confirming the misallocation on a live slice with read-only warehouse SQL before writing any model. That is something a file-reading agent cannot do because it never queries real rows. Pause on the shipped-vs-on-hand numbers.",
+    "Emphasize the grain decision is read from the graph: describe and lineage establish that snapshots are store_id by item_id by date and shipments are line-level, so the store_id by item_id variance grain is chosen from real keys, not assumed. The pre-aggregated shipments CTE is what keeps the join 1:1.",
+    "Show safe-by-default explicitly: validation passes and the SE still does not materialize until dbt_compile renders deterministic SQL and dbt_show returns real rows that match the manual slice. Runs-to-preview is zero materializations on the tour. This is the trust story for a skittish production audience.",
+    "Close on reusability and pipeline position: gold.inventory_shipment_variance is a tested, versioned node that reruns for every future sale, and it lands as part of the Fivetran pipeline that moved the data and the dbt project that transforms it. One governed path from source to reviewed artifact."
+  ]
+}

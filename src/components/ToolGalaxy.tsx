@@ -1,4 +1,26 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+
+// Each tool deep-links to the functionality page that features it.
+const TOOL_PAGE: Record<string, string> = {
+  impact: 'dag-aware-intelligence',
+  lineage: 'dag-aware-intelligence',
+  timings: 'dag-aware-intelligence',
+  status: 'live-project-index',
+  search: 'live-project-index',
+  describe: 'live-project-index',
+  changeset: 'live-project-index',
+  warehouse: 'warehouse-integration',
+  dbt_show: 'warehouse-integration',
+  diff: 'warehouse-integration',
+  dbt_build: 'dbt-native-operations',
+  dbt_run: 'dbt-native-operations',
+  dbt_compile: 'dbt-native-operations',
+  dbt_test: 'dbt-native-operations',
+  dbt_parse: 'dbt-native-operations',
+  context: 'business-context',
+  metrics: 'semantic-layer',
+};
 
 // The 17 mcp__dbt_index__* tools, grouped by capability around a shared core.
 // Hover a category to light its tools. Detail sourced from dbt Wizard.
@@ -50,6 +72,7 @@ function place(): Placed[] {
 export default function ToolGalaxy() {
   const placed = useMemo(place, []);
   const [hover, setHover] = useState<number | null>(null);
+  const navigate = useNavigate();
   const total = CATS.reduce((n, c) => n + c.tools.length, 0);
 
   const on = (ci: number) => hover === null || hover === ci;
@@ -63,7 +86,8 @@ export default function ToolGalaxy() {
           </div>
           <div className="mt-1 text-xs" style={{ color: 'var(--text-soft)' }}>
             Every capability is a typed mcp__dbt_index__ call backed by the live index. Hover a
-            category to light its tools. Detail sourced from dbt Wizard.
+            category to light its tools, and click a tool to open the page that features it. Detail
+            sourced from dbt Wizard.
           </div>
         </div>
         <div className="flex flex-wrap gap-2.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>
@@ -99,7 +123,12 @@ export default function ToolGalaxy() {
             p.tools.map((t, j) => {
               const w = t.label.length * 7.4 + 18;
               return (
-                <g key={`t${p.ci}-${j}`} opacity={on(p.ci) ? 1 : 0.18} style={{ transition: 'opacity 180ms ease' }}>
+                <g
+                  key={`t${p.ci}-${j}`}
+                  opacity={on(p.ci) ? 1 : 0.18}
+                  style={{ transition: 'opacity 180ms ease', cursor: 'pointer' }}
+                  onClick={() => TOOL_PAGE[t.label] && navigate('/p/' + TOOL_PAGE[t.label])}
+                >
                   <rect x={t.x - w / 2} y={t.y - 12} width={w} height={24} rx={12} fill="var(--surface-2)" stroke={p.color} strokeWidth={1.2} />
                   <text x={t.x} y={t.y + 4} fontSize={11.5} fontFamily="'IBM Plex Mono', monospace" textAnchor="middle" fill="var(--text)">
                     {t.label}

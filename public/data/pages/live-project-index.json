@@ -288,5 +288,27 @@
         }
       ]
     }
+  ],
+  "stats": [
+    {
+      "count": 87,
+      "value": "87",
+      "label": "models indexed",
+      "sub": "illustrative"
+    },
+    {
+      "count": 280,
+      "value": "280",
+      "label": "tests tracked"
+    },
+    {
+      "value": "last-run",
+      "label": "state reflected",
+      "sub": "pass/fail, timings"
+    },
+    {
+      "value": "DuckDB",
+      "label": "local index"
+    }
   ]
 }
