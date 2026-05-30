@@ -119,12 +119,12 @@
         "agent": "validation",
         "codeLang": "json",
         "body": "Grain check: rows exceed distinct order_id — fan-out detected.",
-        "code": "{\"row_count\": 24180, \"distinct_orders\": 18412}"
+        "code": "{\"row_count\": 19825, \"distinct_orders\": 18402}"
       },
       {
         "kind": "narration",
         "agent": "validation",
-        "body": "Grain broke: 24,180 rows vs 18,412 distinct order_id. The join is not 1:1 — stg_support_tickets has multiple tickets per order, so the left join fans out. Continuing the gate to quantify against prod."
+        "body": "Grain broke: 19,825 rows vs 18,402 distinct order_id. The join is not 1:1 — stg_support_tickets has multiple tickets per order, so the left join fans out. Continuing the gate to quantify against prod."
       },
       {
         "kind": "tool_call",
@@ -137,7 +137,7 @@
         "agent": "validation",
         "codeLang": "json",
         "body": "Build succeeded but row count rose vs prod baseline.",
-        "code": "{\"node\":\"int_orders_enriched\",\"status\":\"success\",\"rows\":24180,\"exec_seconds\":7.4,\"deferred_upstreams\":3}"
+        "code": "{\"node\":\"int_orders_enriched\",\"status\":\"success\",\"rows\":19825,\"exec_seconds\":7.4,\"deferred_upstreams\":3}"
       },
       {
         "kind": "tool_call",
@@ -149,8 +149,8 @@
         "kind": "tool_result",
         "agent": "validation",
         "codeLang": "json",
-        "body": "Breaking: row count up 31%, grain changed.",
-        "code": "{\"rows_added\":5768,\"rows_removed\":0,\"rows_changed\":0,\"columns_added\":[\"ticket_id\",\"support_ticket_count\"],\"grain_changed\":true,\"classification\":\"breaking\"}"
+        "body": "Breaking: row count up 8%, grain changed.",
+        "code": "{\"rows_added\":1423,\"rows_removed\":0,\"rows_changed\":0,\"columns_added\":[\"ticket_id\",\"support_ticket_count\"],\"grain_changed\":true,\"classification\":\"breaking\"}"
       },
       {
         "kind": "tool_call",
@@ -163,12 +163,12 @@
         "agent": "validation",
         "codeLang": "json",
         "body": "unique test on order_id now fails.",
-        "code": "{\"unique_int_orders_enriched_order_id\":\"fail (5768 dupes)\",\"not_null_order_id\":\"pass\",\"tests_run\":4,\"failed\":1}"
+        "code": "{\"unique_int_orders_enriched_order_id\":\"fail (1423 dupes)\",\"not_null_order_id\":\"pass\",\"tests_run\":4,\"failed\":1}"
       },
       {
         "kind": "narration",
         "agent": "wizard",
-        "body": "The validation gate failed before any PR. The raw join fanned out int_orders_enriched from 18,412 to 24,180 rows and broke the order_id unique test. Rewriting with a pre-aggregated tickets CTE so support_ticket_count is computed per order before the join, preserving one row per order_id."
+        "body": "The validation gate failed before any PR. The raw join fanned out int_orders_enriched from 18,402 to 19,825 rows and broke the order_id unique test. Rewriting with a pre-aggregated tickets CTE so support_ticket_count is computed per order before the join, preserving one row per order_id."
       },
       {
         "kind": "code",
@@ -187,12 +187,12 @@
         "agent": "validation",
         "codeLang": "json",
         "body": "Non-breaking: same row count, one new column.",
-        "code": "{\"rows_added\":0,\"rows_removed\":0,\"rows_changed\":18412,\"columns_added\":[\"support_ticket_count\"],\"grain_changed\":false,\"classification\":\"non-breaking\"}"
+        "code": "{\"rows_added\":0,\"rows_removed\":0,\"rows_changed\":18402,\"columns_added\":[\"support_ticket_count\"],\"grain_changed\":false,\"classification\":\"non-breaking\"}"
       },
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "First attempt was caught automatically — the validation subagent fired the moment I edited the model, not because you asked. The naive join fanned out int_orders_enriched to 24,180 rows and failed the order_id unique test (a breaking change that would have doubled downstream order counts in fct_orders and dim_customers). I rewrote it with a per-order pre-aggregated CTE. Re-validation: grain preserved at 18,412 rows, support_ticket_count added, all 4 tests pass, prod-vs-dev classified non-breaking. This is a validated, in-warehouse change landing as part of the Fivetran pipeline that moved the data and the dbt project that transforms it. Safe to open the PR. Handing off via submit_summary with the impact analysis."
+        "body": "First attempt was caught automatically — the validation subagent fired the moment I edited the model, not because you asked. The naive join fanned out int_orders_enriched to 19,825 rows and failed the order_id unique test (a breaking change that would have doubled downstream order counts in fct_orders and dim_customers). I rewrote it with a per-order pre-aggregated CTE. Re-validation: grain preserved at 18,402 rows, support_ticket_count added, all 4 tests pass, prod-vs-dev classified non-breaking. This is a validated, in-warehouse change landing as part of the Fivetran pipeline that moved the data and the dbt project that transforms it. Safe to open the PR. Handing off via submit_summary with the impact analysis."
       }
     ]
   },
@@ -200,7 +200,7 @@
     "Lead with \"you didn't ask for it.\" The demo lands hardest when you visibly skip any validate command and the subagent spawns on its own the instant the model is edited — that auto-guardrail is the differentiator versus a general coding agent.",
     "Walk the fixed sequence per dbt Wizard's own description: SQL check, then dbt run --defer, then prod-vs-dev row comparison, then impact analysis. The order is the gate, not a suggestion.",
     "Show the deferred build: dbt run --defer --state target-prod/ means only the changed model builds while upstreams resolve from the production manifest and artifacts, so validation is fast and cheap even on a large project. SEs will ask about cost and auth — say deferral can resolve production state from dbt Cloud or from deferred state (--defer --state). Both are valid; don't claim dbt Cloud is required and don't claim it is forbidden.",
-    "The strongest moment is the prod-vs-dev row comparison catching a grain/fan-out change with a real row-count delta (e.g. 18,412 to 24,180). That is something a file-reading agent cannot know because it never queries the warehouse.",
+    "The strongest moment is the prod-vs-dev row comparison catching a grain/fan-out change with a real row-count delta (e.g. 18,402 to 19,825). That is something a file-reading agent cannot know because it never queries the warehouse.",
     "Make clear the verdict is breaking vs non-breaking with named downstream consumers, delivered before the PR via submit_summary — not after CI fails. The value is shifting failure left, which maps to the reported 15-20% average incident reduction from design-partner results (individual results vary).",
     "All four steps are grounded actions: the warehouse tool runs read-only SELECT-only SQL and rejects DML/DDL, dbt_run actually builds, dbt_test actually runs the tests, and diff actually compares dev against production via dbt Cloud or deferred state. dbt_show is the complement — it executes the compiled SQL and returns real rows, so it catches valid-but-wrong-data bugs that reading compiled SQL alone would not. Stress to a technical audience that nothing here is the model guessing from text.",
     "Position it as part of the Fivetran pipeline: Fivetran moves the data, dbt transforms it, and dbt Wizard validates the in-warehouse change before it ships — one governed path from source to reviewed PR."

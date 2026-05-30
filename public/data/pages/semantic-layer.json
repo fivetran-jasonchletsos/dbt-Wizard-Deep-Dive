@@ -278,7 +278,7 @@
         {
           "label": "Dormant",
           "value": 180,
-          "color": "var(--text-soft)"
+          "color": "var(--sev-low)"
         }
       ]
     }

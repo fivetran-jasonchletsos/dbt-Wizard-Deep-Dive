@@ -126,7 +126,7 @@ function CompareBars({
     <div ref={ref} className="flex flex-col gap-5">
       <div className="flex items-center gap-4 text-[11px]" style={{ color: 'var(--text-muted)' }}>
         <span className="inline-flex items-center gap-1.5">
-          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--text-dim)', display: 'inline-block' }} />
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: 'var(--text-soft)', display: 'inline-block' }} />
           {legendA}
         </span>
         <span className="inline-flex items-center gap-1.5">
@@ -144,7 +144,7 @@ function CompareBars({
               pct={(it.before / max) * 100}
               shown={shown}
               delay={i * 90}
-              color="var(--text-dim)"
+              color="var(--text-soft)"
               label={it.beforeLabel}
             />
             <Row

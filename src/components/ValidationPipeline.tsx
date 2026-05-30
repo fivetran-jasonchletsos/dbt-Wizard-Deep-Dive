@@ -41,17 +41,19 @@ const edge = (x1: number, y1: number, x2: number, y2: number) =>
   `M ${x1} ${y1} C ${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2} ${y2}`;
 
 const CHECKS: Box[] = [
-  { x: 130, y: 215, title: 'SQL check', sub: 'compiles, parses', color: '#4aa8ff', w: 150 },
-  { x: 360, y: 215, title: 'dbt run --defer', sub: 'builds vs prod state', color: '#4aa8ff', w: 150 },
-  { x: 590, y: 215, title: 'prod vs dev', sub: 'row-count compare', color: '#4aa8ff', w: 150 },
-  { x: 820, y: 215, title: 'impact', sub: 'downstream blast radius', color: '#4aa8ff', w: 150 },
+  { x: 130, y: 215, title: 'SQL check', sub: 'compiles, parses', color: 'var(--sev-medium)', w: 150 },
+  { x: 360, y: 215, title: 'dbt run --defer', sub: 'builds vs prod state', color: 'var(--sev-medium)', w: 150 },
+  { x: 590, y: 215, title: 'prod vs dev', sub: 'row-count compare', color: 'var(--sev-medium)', w: 150 },
+  { x: 820, y: 215, title: 'impact', sub: 'downstream blast radius', color: 'var(--sev-medium)', w: 150 },
 ];
 
 export default function ValidationPipeline() {
   const edit: Box = { x: 130, y: 70, title: 'Model edit', sub: 'worker authors the change', color: '#a78bfa', w: 178 };
   const validation: Box = { x: 380, y: 70, title: 'validation subagent', sub: 'auto-fires, no prompt', color: '#30c48d', w: 188 };
-  const pass: Box = { x: 290, y: 380, title: 'PASS — safe to merge', sub: 'dev 18,412 = prod 18,412, grain held', color: '#30c48d', w: 320, h: 56 };
-  const flag: Box = { x: 670, y: 380, title: 'WOULD FLAG', sub: 'a naive join reads 24,180 (+5,768), blocked', color: '#f0564d', w: 320, h: 56 };
+  // Numbers canonical with scenario-extend.json (4,310 tickets across 2,887 ticketed orders
+  // => +1,423 duplicate rows on a raw join). Keep these two in sync if either changes.
+  const pass: Box = { x: 290, y: 380, title: 'PASS — safe to merge', sub: 'dev 18,402 = prod 18,402, grain held', color: '#30c48d', w: 320, h: 56 };
+  const flag: Box = { x: 670, y: 380, title: 'WOULD FLAG', sub: 'a naive join reads 19,825 (+1,423), blocked', color: '#f0564d', w: 320, h: 56 };
 
   const rOf = (b: Box) => b.x + (b.w ?? BW) / 2;
   const lOf = (b: Box) => b.x - (b.w ?? BW) / 2;

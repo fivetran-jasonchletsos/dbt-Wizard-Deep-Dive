@@ -8,7 +8,7 @@ const EFFORT_COLLAPSE: ChartSpec = {
   title: 'Effort before and after dbt Wizard',
   note: 'Relative effort, illustrative. Magnitudes from dbt Wizard’s own business-value framing.',
   items: [
-    { label: 'Onboard into a new project', before: 100, after: 6, beforeLabel: '1–2 weeks', afterLabel: 'one session' },
+    { label: 'Onboard into a new project', before: 100, after: 6, beforeLabel: '1–2 weeks', afterLabel: 'under an hour' },
     { label: 'Trace a change’s blast radius', before: 85, after: 3, beforeLabel: '30–60 min', afterLabel: 'seconds' },
     { label: 'Discover where a source lands', before: 80, after: 5, beforeLabel: 'hours', afterLabel: 'minutes' },
     { label: 'Answer the same question next quarter', before: 100, after: 8, beforeLabel: 'hours, from scratch', afterLabel: 'seconds to rerun' },

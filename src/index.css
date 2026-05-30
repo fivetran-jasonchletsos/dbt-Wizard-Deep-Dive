@@ -68,23 +68,32 @@
   color-scheme: light;
   --surface-0:    #f6f3ee;
   --surface-1:    #ffffff;
-  --surface-2:    #f1ece4;
-  --surface-3:    #e7e0d4;
+  --surface-2:    #ece4d6;   /* darker so diagram nodes / stat tiles read on white panels */
+  --surface-3:    #ddd2bf;
   --surface-code: #0f1218;   /* code panels stay dark for syntax contrast */
-  --line:        rgba(60, 42, 30, 0.14);
-  --line-bright: rgba(60, 42, 30, 0.26);
-  --line-soft:   rgba(60, 42, 30, 0.07);
+  --line:        rgba(60, 42, 30, 0.16);
+  --line-bright: rgba(60, 42, 30, 0.28);
+  --line-soft:   rgba(60, 42, 30, 0.08);
   --text:       #1b1f27;
   --text-muted: #59616e;
-  --text-soft:  #828b98;
-  --text-dim:   #b9c0c9;
+  --text-soft:  #6b7280;     /* clears AA for small chart/diagram captions */
+  --text-dim:   #9aa2ad;
   --dbt-glow:   rgba(255, 105, 75, 0.16);
   --teal-glow:  rgba(0, 180, 160, 0.14);
   --resolved-glow: rgba(48, 196, 141, 0.14);
   --grid-dot:   rgba(255, 105, 75, 0.07);
   --grid-major: rgba(255, 105, 75, 0.035);
-  /* darker severity-low for contrast on the light surface */
+  /* deepened accents so fills + display numerals hold contrast on the cream surface */
   --sev-low:    #4b5563;
+  --sev-medium: #1f7fd6;
+  --alert:      #b8730a;
+  --resolved:   #1f9e6e;
+  --teal:       #0a8f80;
+}
+
+/* On a light page the dark code slab needs a visible edge to read as an embedded terminal. */
+:root[data-theme="light"] .code-panel {
+  border-color: rgba(0, 0, 0, 0.18);
 }
 
 html, body, #root { height: 100%; }
