@@ -165,7 +165,7 @@
       ]
     },
     {
-      "prompt": "Run dim_customers in defer mode against production so I'm not rebuilding the whole staging layer.",
+      "prompt": "Run orders_by_week in defer mode against production so I'm not rebuilding the whole staging layer.",
       "intent": "Materialize one model against prod-built upstreams to save compute.",
       "invokes": [
         "mcp__dbt_index__dbt_run"
@@ -219,12 +219,12 @@
         "kind": "tool_result",
         "agent": "wizard",
         "codeLang": "json",
-        "code": "{\"root\":\"int_orders_enriched\",\"downstream\":[{\"node\":\"fct_orders\",\"hop\":1,\"materialization\":\"incremental\"},{\"node\":\"dim_customers\",\"hop\":1,\"materialization\":\"table\"},{\"node\":\"mart_revenue_daily\",\"hop\":2,\"materialization\":\"table\"}],\"downstream_count\":3}"
+        "code": "{\"root\":\"int_orders_enriched\",\"downstream\":[{\"node\":\"fct_orders\",\"hop\":1,\"materialization\":\"incremental\"},{\"node\":\"orders_by_week\",\"hop\":1,\"materialization\":\"table\"},{\"node\":\"mart_revenue_daily\",\"hop\":2,\"materialization\":\"table\"}],\"downstream_count\":3}"
       },
       {
         "kind": "narration",
         "agent": "wizard",
-        "body": "Three downstream nodes: fct_orders, dim_customers, mart_revenue_daily. I'll select int_orders_enriched+ which captures the node and all descendants, and defer everything else to the production manifest at target-prod/."
+        "body": "Three downstream nodes: fct_orders, orders_by_week, mart_revenue_daily. I'll select int_orders_enriched+ which captures the node and all descendants, and defer everything else to the production manifest at target-prod/."
       },
       {
         "kind": "tool_call",
@@ -236,7 +236,7 @@
         "kind": "tool_result",
         "agent": "wizard",
         "codeLang": "json",
-        "code": "{\"summary\":{\"status\":\"success\",\"models\":4,\"tests\":0,\"deferred_refs\":5},\"nodes\":[{\"node\":\"int_orders_enriched\",\"status\":\"success\",\"rows\":182431,\"seconds\":7.4,\"materialization\":\"view\"},{\"node\":\"fct_orders\",\"status\":\"success\",\"rows\":182431,\"seconds\":11.9,\"materialization\":\"incremental\"},{\"node\":\"dim_customers\",\"status\":\"success\",\"rows\":24310,\"seconds\":3.2,\"materialization\":\"table\"},{\"node\":\"mart_revenue_daily\",\"status\":\"success\",\"rows\":1460,\"seconds\":2.1,\"materialization\":\"table\"}],\"index_refreshed\":true}"
+        "code": "{\"summary\":{\"status\":\"success\",\"models\":4,\"tests\":0,\"deferred_refs\":5},\"nodes\":[{\"node\":\"int_orders_enriched\",\"status\":\"success\",\"rows\":182431,\"seconds\":7.4,\"materialization\":\"view\"},{\"node\":\"fct_orders\",\"status\":\"success\",\"rows\":182431,\"seconds\":11.9,\"materialization\":\"incremental\"},{\"node\":\"orders_by_week\",\"status\":\"success\",\"rows\":24310,\"seconds\":3.2,\"materialization\":\"table\"},{\"node\":\"mart_revenue_daily\",\"status\":\"success\",\"rows\":1460,\"seconds\":2.1,\"materialization\":\"table\"}],\"index_refreshed\":true}"
       },
       {
         "kind": "narration",
@@ -263,7 +263,7 @@
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "Deferred build done cheaply: 4 models materialized (int_orders_enriched + fct_orders + dim_customers + mart_revenue_daily) in ~24.6s total, with 5 upstream refs deferred to the production manifest at target-prod/ so staging was not rebuilt. Tests: 11 pass, 1 fail. The failure is not_null_fct_orders_support_ticket_count (318 rows) because your new left join leaves support_ticket_count NULL for ticket-less orders. Fix: COALESCE(support_ticket_count, 0) in int_orders_enriched, then re-run dbt_build on int_orders_enriched+ with defer=true state=target-prod/ and dbt_test on the same subgraph. The failed result and per-node durations are already written into the index, and on your next edit the validation subagent will re-run this same deferred run-and-compare before you merge."
+        "body": "Deferred build done cheaply: 4 models materialized (int_orders_enriched + fct_orders + orders_by_week + mart_revenue_daily) in ~24.6s total, with 5 upstream refs deferred to the production manifest at target-prod/ so staging was not rebuilt. Tests: 11 pass, 1 fail. The failure is not_null_fct_orders_support_ticket_count (318 rows) because your new left join leaves support_ticket_count NULL for ticket-less orders. Fix: COALESCE(support_ticket_count, 0) in int_orders_enriched, then re-run dbt_build on int_orders_enriched+ with defer=true state=target-prod/ and dbt_test on the same subgraph. The failed result and per-node durations are already written into the index, and on your next edit the validation subagent will re-run this same deferred run-and-compare before you merge."
       }
     ]
   },
@@ -292,7 +292,7 @@
           "value": 28
         },
         {
-          "label": "dim_customers",
+          "label": "orders_by_week",
           "value": 19
         },
         {

@@ -183,8 +183,8 @@
         "kind": "tool_result",
         "agent": "wizard",
         "codeLang": "json",
-        "body": "Downstream: fct_orders, dim_customers, and one exposure.",
-        "code": "{\"downstream\":[\"fct_orders\",\"dim_customers\"],\"exposures\":[\"orders_overview_dashboard\"],\"severity\":\"high\"}"
+        "body": "Downstream: fct_orders, orders_by_week, and one exposure.",
+        "code": "{\"downstream\":[\"fct_orders\",\"orders_by_week\"],\"exposures\":[\"orders_overview_dashboard\"],\"severity\":\"high\"}"
       },
       {
         "kind": "narration",
@@ -249,7 +249,7 @@
       {
         "kind": "narration",
         "agent": "validation",
-        "body": "For contrast: an un-aggregated join on stg_tickets would have produced 47,019 rows against 18,412 distinct order_id — a fan-out that breaks fct_orders and dim_customers. The pre-aggregation is why this comes back non-breaking."
+        "body": "For contrast: an un-aggregated join on stg_tickets would have produced 47,019 rows against 18,412 distinct order_id — a fan-out that breaks fct_orders and orders_by_week. The pre-aggregation is why this comes back non-breaking."
       },
       {
         "kind": "tool_call",
@@ -285,7 +285,7 @@
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "Done, and nothing was materialized. I read the stg_tickets grain (ticket_id, many per order) and int_orders_enriched grain (order_id) up front, computed the downstream blast radius (fct_orders, dim_customers, and the orders_overview_dashboard exposure), and the worker pre-aggregated tickets to one row per order_id before a LEFT JOIN, preserving all 22 existing columns. The validation subagent fired automatically on the edit: grain held at 18,412 rows, the deferred build matched prod, the prod-vs-dev diff is non-breaking with three columns added, and all 5 tests pass. Had this been an un-aggregated join it would have fanned out to 47,019 rows and broken downstream order counts — the gate would have caught it. This is a validated, in-warehouse change ready for review. Handing off via submit_summary: task_summary, assumptions, non-breaking classification, and the named downstream consumers."
+        "body": "Done, and nothing was materialized. I read the stg_tickets grain (ticket_id, many per order) and int_orders_enriched grain (order_id) up front, computed the downstream blast radius (fct_orders, orders_by_week, and the orders_overview_dashboard exposure), and the worker pre-aggregated tickets to one row per order_id before a LEFT JOIN, preserving all 22 existing columns. The validation subagent fired automatically on the edit: grain held at 18,412 rows, the deferred build matched prod, the prod-vs-dev diff is non-breaking with three columns added, and all 5 tests pass. Had this been an un-aggregated join it would have fanned out to 47,019 rows and broken downstream order counts — the gate would have caught it. This is a validated, in-warehouse change ready for review. Handing off via submit_summary: task_summary, assumptions, non-breaking classification, and the named downstream consumers."
       }
     ]
   },

@@ -208,7 +208,7 @@
         "agent": "explorer",
         "codeLang": "json",
         "body": "3 downstream consumers reference int_orders_enriched.",
-        "code": "{\"downstream\":[\"fct_orders\",\"dim_customers\",\"mart_support_health\"]}"
+        "code": "{\"downstream\":[\"fct_orders\",\"orders_by_week\",\"mart_support_health\"]}"
       },
       {
         "kind": "narration",
@@ -258,7 +258,7 @@
       {
         "kind": "final",
         "agent": "wizard",
-        "body": "Done. Added support_ticket_count to int_orders_enriched (left join + coalesce to 0, grain preserved at order_id). submit_summary handoff: task_summary = add ticket count to silver order model; assumptions = stg_tickets.order_id is the join key and missing tickets mean 0; expectations = row count unchanged (482,911), no new nulls; impact = NON-BREAKING (additive column), downstream consumers fct_orders, dim_customers, mart_support_health unaffected and compile clean. Deferred validation build passed with zero prod-vs-dev row delta. Ready for PR."
+        "body": "Done. Added support_ticket_count to int_orders_enriched (left join + coalesce to 0, grain preserved at order_id). submit_summary handoff: task_summary = add ticket count to silver order model; assumptions = stg_tickets.order_id is the join key and missing tickets mean 0; expectations = row count unchanged (482,911), no new nulls; impact = NON-BREAKING (additive column), downstream consumers fct_orders, orders_by_week, mart_support_health unaffected and compile clean. Deferred validation build passed with zero prod-vs-dev row delta. Ready for PR."
       }
     ]
   },
