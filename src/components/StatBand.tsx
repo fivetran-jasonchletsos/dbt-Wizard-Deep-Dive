@@ -14,7 +14,11 @@ function useReveal<T extends HTMLElement>() {
       { threshold: 0.3 },
     );
     io.observe(el);
-    return () => io.disconnect();
+    const fallback = setTimeout(() => setShown(true), 500);
+    return () => {
+      io.disconnect();
+      clearTimeout(fallback);
+    };
   }, []);
   return { ref, shown };
 }

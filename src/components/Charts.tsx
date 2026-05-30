@@ -15,7 +15,12 @@ function useReveal<T extends HTMLElement>() {
       { threshold: 0.25 },
     );
     io.observe(el);
-    return () => io.disconnect();
+    // Safety net: reveal even if the observer never fires (layout/visibility edge cases).
+    const fallback = setTimeout(() => setShown(true), 500);
+    return () => {
+      io.disconnect();
+      clearTimeout(fallback);
+    };
   }, []);
   return { ref, shown };
 }
