@@ -98,6 +98,31 @@ export default function HomePage() {
             {'->'}
           </span>
         </Link>
+
+        <div className="panel mt-8 p-5">
+          <div className="eyebrow" style={{ color: 'var(--dbt)' }}>
+            THE TWO-MINUTE WALKTHROUGH
+          </div>
+          <div className="font-display text-xl mt-1 mb-3" style={{ color: 'var(--text)' }}>
+            The whole deep dive, in one reel
+          </div>
+          <video
+            className="w-full rounded-md"
+            style={{ border: '1px solid var(--line)', background: '#000' }}
+            controls
+            preload="metadata"
+            playsInline
+            poster={`${import.meta.env.BASE_URL}video/poster.png`}
+          >
+            <source src={`${import.meta.env.BASE_URL}video/demo.mp4`} type="video/mp4" />
+            Your browser does not support embedded video.
+            <a href={`${import.meta.env.BASE_URL}video/demo.mp4`}>Download the walkthrough.</a>
+          </video>
+          <p className="text-sm mt-3" style={{ color: 'var(--text-muted)' }}>
+            Thesis, the HOL map, a live build scenario, the agent architecture, the MCP tool layer, and
+            the validation pipeline, end to end.
+          </p>
+        </div>
       </section>
 
       <section className="mt-10">
